@@ -141,4 +141,23 @@ export async function deleteCard(cardId: number) {
   }
   
   return true;
+}
+
+// 카드 내용 수정하기
+export async function updateCard(card: FlashCard) {
+  const { data, error } = await supabase
+    .from('flashcards')
+    .update({
+      front: card.front,
+      back: card.back
+    })
+    .eq('id', card.id)
+    .select();
+  
+  if (error) {
+    console.error('카드 내용 수정 오류:', error);
+    return null;
+  }
+  
+  return data?.[0] as FlashCard;
 } 

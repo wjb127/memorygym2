@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getCardsByBox, updateCardBox, deleteCard } from '../utils/leitner';
+import { getCardsByBox, updateCardBox, deleteCard, updateCard } from '../utils/leitner';
 import { FlashCard, BOX_NAMES } from '../utils/types';
 
 export default function BoxManager() {
@@ -10,6 +10,9 @@ export default function BoxManager() {
   const [selectedBox, setSelectedBox] = useState<number>(1);
   const [cardToDelete, setCardToDelete] = useState<FlashCard | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [cardToEdit, setCardToEdit] = useState<FlashCard | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState({ front: '', back: '' });
 
   const loadCards = useCallback(async () => {
     try {
@@ -57,6 +60,47 @@ export default function BoxManager() {
       setShowDeleteModal(false);
     } catch (error) {
       console.error('카드 삭제 오류:', error);
+    }
+  };
+
+  const openEditModal = (card: FlashCard) => {
+    setCardToEdit(card);
+    setEditFormData({ front: card.front, back: card.back });
+    setShowEditModal(true);
+  };
+
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const confirmEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cardToEdit) return;
+    
+    try {
+      // 수정된 데이터로 카드 업데이트
+      const updatedCard = {
+        ...cardToEdit,
+        front: editFormData.front,
+        back: editFormData.back
+      };
+      
+      // leitner.ts에서 가져온 updateCard 함수 사용
+      await updateCard(updatedCard);
+      
+      // UI 업데이트
+      setCards(prev => 
+        prev.map(card => 
+          card.id === cardToEdit.id 
+            ? { ...card, front: editFormData.front, back: editFormData.back } 
+            : card
+        )
+      );
+      
+      setShowEditModal(false);
+    } catch (error) {
+      console.error('카드 수정 오류:', error);
     }
   };
 
@@ -110,7 +154,14 @@ export default function BoxManager() {
                   {new Date(card.last_reviewed || Date.now()).toLocaleDateString()}
                 </div>
                 
-                <div className="flex space-x-2">
+                <div className="flex flex-wrap space-x-2">
+                  <button
+                    onClick={() => openEditModal(card)}
+                    className="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded border border-blue-200 hover:bg-blue-100"
+                  >
+                    수정
+                  </button>
+                  
                   {selectedBox < 5 && (
                     <button
                       onClick={() => handleMoveCard(card.id, selectedBox + 1)}
@@ -170,6 +221,63 @@ export default function BoxManager() {
                 삭제
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 수정 모달 */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm mx-4 w-full">
+            <h3 className="text-lg font-medium mb-4">카드 수정</h3>
+            
+            <form onSubmit={confirmEdit} className="space-y-4">
+              <div>
+                <label htmlFor="front" className="block text-sm font-medium text-gray-700 mb-1">
+                  앞면
+                </label>
+                <input
+                  type="text"
+                  id="front"
+                  name="front"
+                  value={editFormData.front}
+                  onChange={handleEditChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="back" className="block text-sm font-medium text-gray-700 mb-1">
+                  뒷면
+                </label>
+                <input
+                  type="text"
+                  id="back"
+                  name="back"
+                  value={editFormData.back}
+                  onChange={handleEditChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  required
+                />
+              </div>
+              
+              <div className="flex justify-end space-x-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-3 py-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className="px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                >
+                  저장
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
