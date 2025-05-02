@@ -64,14 +64,14 @@ export default function StudySession() {
         incorrect: prev.incorrect + (isCorrect ? 0 : 1)
       }));
       
-      // 약간의 딜레이 후 다음 카드로 이동
+      // 짧은 딜레이 후 다음 카드로 이동
       setTimeout(() => {
         if (currentCardIndex < cards.length - 1) {
           setCurrentCardIndex(prevIndex => prevIndex + 1);
         } else {
           setCompleted(true);
         }
-      }, 1000);
+      }, 1500); // 1.5초 딜레이로 결과를 볼 수 있는 시간 제공
     } catch (error) {
       console.error('답변 처리 오류:', error);
     }

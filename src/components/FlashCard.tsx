@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent, KeyboardEvent } from 'react';
+import { useState, FormEvent, KeyboardEvent, useEffect } from 'react';
 import { FlashCard as FlashCardType, BOX_COLORS } from '../utils/types';
 
 interface FlashCardProps {
@@ -13,6 +13,14 @@ export default function FlashCard({ card, onAnswer }: FlashCardProps) {
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [answered, setAnswered] = useState(false);
+
+  // card prop이 변경될 때마다 상태 초기화
+  useEffect(() => {
+    setUserAnswer('');
+    setShowResult(false);
+    setIsCorrect(false);
+    setAnswered(false);
+  }, [card.id]); // card의 id가 바뀔 때만 리셋
 
   const checkAnswer = (e: FormEvent) => {
     e.preventDefault();
@@ -30,10 +38,8 @@ export default function FlashCard({ card, onAnswer }: FlashCardProps) {
     setShowResult(true);
     setAnswered(true);
     
-    // 약간의 딜레이 후에 결과 처리
-    setTimeout(() => {
-      onAnswer(card.id, result);
-    }, 1500);
+    // 결과 처리 - 딜레이 없이 바로 처리
+    onAnswer(card.id, result);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
