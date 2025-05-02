@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getCardsByBox, deleteCard } from '../utils/leitner';
 import { FlashCard as FlashCardType, BOX_NAMES, BOX_COLORS } from '../utils/types';
 
@@ -9,11 +9,8 @@ export default function BoxManager() {
   const [cards, setCards] = useState<FlashCardType[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadCards();
-  }, [selectedBox]);
-
-  const loadCards = async () => {
+  // useCallback을 사용하여 loadCards 함수를 메모이제이션
+  const loadCards = useCallback(async () => {
     try {
       setLoading(true);
       const boxCards = await getCardsByBox(selectedBox);
@@ -23,7 +20,11 @@ export default function BoxManager() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedBox]); // selectedBox가 변경될 때만 함수가 다시 생성됨
+
+  useEffect(() => {
+    loadCards();
+  }, [loadCards]); // 이제 loadCards 함수를 종속성으로 추가
 
   const handleDeleteCard = async (cardId: number) => {
     if (confirm('정말로 이 카드를 삭제하시겠습니까?')) {

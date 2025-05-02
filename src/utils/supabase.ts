@@ -18,12 +18,25 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
 
 // 개발 환경용 더미 데이터 구현 (실제 API 호출 대신 가짜 데이터 반환)
 // Supabase 연결 없이도 UI가 작동하도록 합니다
+type FlashCardData = {
+  id: number;
+  created_at: string;
+  front: string;
+  back: string;
+  box_number: number;
+  last_reviewed: string;
+  next_review: string;
+  is_admin_card: boolean;
+}
+
+type InsertData = Partial<FlashCardData>;
+
 class DummySupabase {
-  async from(table: string) {
+  async from(_table: string) {
     return {
       select: () => this.select(),
-      insert: (data: any) => this.insert(data),
-      update: (data: any) => this.update(data),
+      insert: (data: InsertData) => this.insert(data),
+      update: (data: InsertData) => this.update(data),
       delete: () => this.delete(),
       eq: () => this,
       lte: () => this,
@@ -39,14 +52,14 @@ class DummySupabase {
     });
   }
 
-  insert(data: any) {
+  insert(data: InsertData) {
     return Promise.resolve({
       data: [{ id: Date.now(), created_at: new Date().toISOString(), ...data }],
       error: null
     });
   }
 
-  update(data: any) {
+  update(data: InsertData) {
     return Promise.resolve({
       data: [{ id: 1, created_at: new Date().toISOString(), ...data }],
       error: null
@@ -66,7 +79,7 @@ class DummySupabase {
 }
 
 // 더미 데이터 생성 함수
-function getSampleData() {
+function getSampleData(): FlashCardData[] {
   return [
     {
       id: 1,
@@ -122,4 +135,5 @@ function getSampleData() {
 }
 
 // 더미 Supabase 객체 생성
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const supabaseDummy = new DummySupabase() as any; 
