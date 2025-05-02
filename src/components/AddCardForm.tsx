@@ -117,80 +117,84 @@ export default function AddCardForm({ onCardAdded }: AddCardFormProps) {
 
   return (
     <div>
-      <h2 className="text-xl font-bold mb-4 text-center">암기 카드 추가</h2>
+      <h2 className="text-xl md:text-2xl font-bold mb-6 text-center bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] bg-clip-text text-transparent">
+        🧠 두뇌 운동 카드 추가
+      </h2>
       
-      <div className="mb-4 flex justify-center">
-        <div className="flex rounded-md overflow-hidden border">
+      <div className="mb-6 flex justify-center">
+        <div className="flex rounded-lg overflow-hidden border border-[var(--neutral-300)] shadow-sm">
           <button
             type="button"
             onClick={() => setIsBulkMode(false)}
-            className={`px-4 py-2 text-sm font-medium ${!isBulkMode 
-              ? 'bg-indigo-600 text-white' 
-              : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+            className={`px-5 py-2.5 text-sm font-medium ${!isBulkMode 
+              ? 'bg-[var(--primary)] text-white shadow-sm' 
+              : 'bg-[var(--neutral-100)] text-[var(--neutral-700)] hover:bg-[var(--neutral-200)]'} transition-colors`}
           >
-            단일 카드 추가
+            🧩 단일 카드 추가
           </button>
           <button
             type="button"
             onClick={() => setIsBulkMode(true)}
-            className={`px-4 py-2 text-sm font-medium ${isBulkMode 
-              ? 'bg-indigo-600 text-white' 
-              : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+            className={`px-5 py-2.5 text-sm font-medium ${isBulkMode 
+              ? 'bg-[var(--primary)] text-white shadow-sm' 
+              : 'bg-[var(--neutral-100)] text-[var(--neutral-700)] hover:bg-[var(--neutral-200)]'} transition-colors`}
           >
-            대량 카드 추가
+            📚 대량 카드 추가
           </button>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
         {!isBulkMode ? (
           <>
-            <div>
-              <label htmlFor="front" className="block text-sm font-medium text-gray-700 mb-1">
-                정답 (예: 단어)
-              </label>
-              <input
-                type="text"
-                id="front"
-                value={front}
-                onChange={(e) => setFront(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="정답이 되는 단어나 내용을 입력하세요"
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="back" className="block text-sm font-medium text-gray-700 mb-1">
-                문제 (예: 설명)
-              </label>
-              <input
-                type="text"
-                id="back"
-                value={back}
-                onChange={(e) => setBack(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="문제가 되는 설명이나 힌트를 입력하세요"
-              />
+            <div className="bg-[var(--neutral-100)] p-6 rounded-lg border border-[var(--neutral-300)] shadow-sm">
+              <div className="mb-4">
+                <label htmlFor="front" className="block text-sm font-medium mb-2">
+                  💡 정답 (예: 단어)
+                </label>
+                <input
+                  type="text"
+                  id="front"
+                  value={front}
+                  onChange={(e) => setFront(e.target.value)}
+                  className="w-full px-4 py-3 border border-[var(--neutral-300)] rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)]"
+                  placeholder="정답이 되는 단어나 내용을 입력하세요"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="back" className="block text-sm font-medium mb-2">
+                  ❓ 문제 (예: 설명)
+                </label>
+                <input
+                  type="text"
+                  id="back"
+                  value={back}
+                  onChange={(e) => setBack(e.target.value)}
+                  className="w-full px-4 py-3 border border-[var(--neutral-300)] rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)]"
+                  placeholder="문제가 되는 설명이나 힌트를 입력하세요"
+                />
+              </div>
             </div>
           </>
         ) : (
-          <div>
-            <label htmlFor="bulkText" className="block text-sm font-medium text-gray-700 mb-1">
-              대량 카드 (정답, 문제 형식)
+          <div className="bg-[var(--neutral-100)] p-6 rounded-lg border border-[var(--neutral-300)] shadow-sm">
+            <label htmlFor="bulkText" className="block text-sm font-medium mb-2">
+              📚 대량 카드 (정답, 문제 형식)
             </label>
             <textarea
               id="bulkText"
               value={bulkText}
               onChange={(e) => setBulkText(e.target.value)}
               rows={8}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-4 py-3 border border-[var(--neutral-300)] rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)]"
               placeholder="각 줄마다 한 개의 카드를 추가합니다. 형식: 정답, 문제
 예시:
 apple, 사과는 영어로?
 book, 책은 영어로?
 computer, 컴퓨터는 영어로?"
             />
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-[var(--neutral-700)]">
               각 줄에 하나의 카드를 정답과 문제를 쉼표로 구분하여 입력하세요.
             </p>
           </div>
@@ -198,33 +202,40 @@ computer, 컴퓨터는 영어로?"
 
         {submitStatus && (
           <div 
-            className={`p-3 rounded-md ${
-              submitStatus === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+            className={`p-4 rounded-lg ${
+              submitStatus === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'
             }`}
           >
-            {submitMessage.split('\n').map((line, i) => (
-              <p key={i}>{line}</p>
-            ))}
+            <div className="flex items-center">
+              <span className="mr-2 text-lg">
+                {submitStatus === 'success' ? '✅' : '❌'}
+              </span>
+              <div>
+                {submitMessage.split('\n').map((line, i) => (
+                  <p key={i}>{line}</p>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
-        <div className="flex justify-between">
+        <div className="flex justify-between pt-2">
           <button
             type="button"
             onClick={resetForm}
-            className="px-4 py-2 text-sm border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+            className="px-5 py-3 text-sm border border-[var(--neutral-300)] rounded-lg shadow-sm text-[var(--neutral-700)] bg-[var(--neutral-100)] hover:bg-[var(--neutral-200)] focus:outline-none transition-colors"
           >
-            초기화
+            🔄 초기화
           </button>
           
           <button
             type="submit"
             disabled={isSubmitting}
-            className={`px-4 py-2 text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
-              isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
+            className={`px-5 py-3 text-sm font-medium rounded-lg shadow-sm text-white bg-[var(--primary)] hover:bg-[var(--primary-hover)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)] transition-colors ${
+              isSubmitting ? 'opacity-70 cursor-not-allowed' : ''
             }`}
           >
-            {isSubmitting ? '처리 중...' : isBulkMode ? '여러 카드 추가' : '카드 추가'}
+            {isSubmitting ? '⏳ 처리 중...' : isBulkMode ? '📚 여러 카드 추가' : '💪 카드 추가'}
           </button>
         </div>
       </form>

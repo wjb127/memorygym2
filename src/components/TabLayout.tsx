@@ -18,14 +18,14 @@ export default function TabLayout({ tabs }: TabLayoutProps) {
   return (
     <div>
       {/* 탭 헤더 */}
-      <div className="flex border-b border-gray-200 mb-6">
+      <div className="flex border-b-2 border-[var(--neutral-300)] mb-6 overflow-x-auto">
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            className={`px-6 py-4 text-sm md:text-base font-medium border-b-2 transition-colors -mb-0.5 whitespace-nowrap ${
               activeTab === tab.id
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-[var(--primary)] text-[var(--primary)] font-bold'
+                : 'border-transparent text-[var(--neutral-700)] hover:text-[var(--foreground)] hover:border-[var(--neutral-500)]'
             }`}
             onClick={() => setActiveTab(tab.id)}
           >
@@ -35,11 +35,11 @@ export default function TabLayout({ tabs }: TabLayoutProps) {
       </div>
 
       {/* 탭 컨텐츠 */}
-      <div className="mt-4">
+      <div className="mt-6">
         {tabs.map((tab) => (
           <div 
             key={tab.id} 
-            className={activeTab === tab.id ? 'block' : 'hidden'}
+            className={`transition-opacity duration-300 ${activeTab === tab.id ? 'block opacity-100' : 'hidden opacity-0'}`}
           >
             {tab.content}
           </div>

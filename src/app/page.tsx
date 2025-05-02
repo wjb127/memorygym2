@@ -19,33 +19,36 @@ export default function Home() {
   const tabs = [
     {
       id: 'study',
-      label: '암기훈련',
+      label: '🏋️‍♂️ 암기훈련',
       content: <StudySession />
     },
     {
       id: 'add',
-      label: '카드추가',
+      label: '🧠 카드추가',
       content: <AddCardForm onCardAdded={handleCardAdded} />
     },
     {
       id: 'manage',
-      label: '카드관리',
+      label: '📊 카드관리',
       content: <BoxManager />
     }
   ];
 
   return (
     <main className="min-h-screen flex flex-col p-4 md:p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl md:text-3xl font-bold text-center mb-6">
-        메모리짐
-      </h1>
+      <header className="mb-8 text-center">
+        <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] bg-clip-text text-transparent">
+          💪 메모리짐
+        </h1>
+        <p className="mt-2 text-[var(--neutral-700)]">당신의 두뇌를 위한 최고의 트레이닝</p>
+      </header>
       
-      <div className="bg-white rounded-xl shadow-md p-4 md:p-6 flex-grow">
+      <div className="bg-[var(--neutral-100)] rounded-xl shadow-lg p-4 md:p-6 flex-grow border border-[var(--neutral-300)]">
         <TabLayout tabs={tabs} />
       </div>
       
-      <footer className="mt-8 text-center text-sm text-gray-500">
-        <p>&copy; 2023 메모리짐 - 효율적인 기억 훈련을 위한 앱</p>
+      <footer className="mt-8 text-center text-sm text-[var(--neutral-700)]">
+        <p>💪 메모리짐 - 매일 훈련하는 두뇌는 더 강해집니다</p>
       </footer>
     </main>
   );

@@ -59,48 +59,89 @@ export default function FlashCard({ card, onAnswer }: FlashCardProps) {
     }
   };
 
+  // 상자 번호에 따른 이모지 반환 함수
+  const getBoxEmoji = (boxNumber: number): string => {
+    const emojis = ['🔄', '🏋️‍♂️', '💪', '🧠', '🏆', '🎯'];
+    return emojis[boxNumber] || '📦';
+  };
+
   return (
     <div 
-      className={`relative w-full h-64 rounded-xl shadow-md ${BOX_COLORS[card.box_number as keyof typeof BOX_COLORS]} border-2 p-6 ${answered ? 'opacity-90' : ''}`}
+      className={`relative w-full rounded-xl shadow-lg p-6 ${
+        answered 
+          ? isCorrect 
+            ? 'bg-green-50 border-2 border-green-200' 
+            : 'bg-red-50 border-2 border-red-200'
+          : 'bg-[var(--neutral-100)] border-2 border-[var(--neutral-300)]'
+      } transition-all duration-300`}
     >
-      <div className="absolute top-2 right-2 text-xs text-gray-500">
-        상자 #{card.box_number}
+      <div className="absolute top-3 right-3 px-2 py-1 rounded-full bg-[var(--neutral-200)] text-xs flex items-center shadow-sm">
+        <span className="mr-1">{getBoxEmoji(card.box_number)}</span>
+        <span>상자 {card.box_number}</span>
       </div>
       
-      <div className="flex flex-col h-full">
-        <div className="text-2xl font-bold text-center mb-6">{card.back}</div>
+      <div className="flex flex-col">
+        <div className="mt-6 mb-8 text-2xl font-bold text-center p-4 bg-[var(--neutral-200)] rounded-lg shadow-inner">
+          {card.back}
+        </div>
         
         <form onSubmit={checkAnswer} className="mt-auto">
           <div className="flex flex-col space-y-4">
-            <input
-              type="text"
-              className={`w-full px-3 py-2 border rounded-md ${
-                showResult
-                  ? isCorrect
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-red-500 bg-red-50'
-                  : 'border-gray-300'
-              }`}
-              placeholder="정답을 입력하세요"
-              value={userAnswer}
-              onChange={(e) => setUserAnswer(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={answered}
-              autoFocus
-            />
+            <div className="relative">
+              <input
+                type="text"
+                className={`w-full px-4 py-3 border-2 rounded-lg ${
+                  showResult
+                    ? isCorrect
+                      ? 'border-green-500 bg-green-50 text-green-700'
+                      : 'border-red-500 bg-red-50 text-red-700'
+                    : 'border-[var(--neutral-300)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]'
+                } outline-none transition-colors`}
+                placeholder="정답을 입력하세요"
+                value={userAnswer}
+                onChange={(e) => setUserAnswer(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={answered}
+                autoFocus
+              />
+              {!showResult && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[var(--neutral-500)]">
+                  Enter ⏎
+                </div>
+              )}
+            </div>
             
             {!answered && (
               <button
                 type="submit"
-                className="w-full py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                className="w-full py-3 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors shadow-md"
               >
-                정답 확인
+                💪 정답 확인
               </button>
             )}
             
             {showResult && (
-              <div className={`text-center font-bold ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
-                {isCorrect ? '정답입니다!' : `틀렸습니다. 정답은 '${card.front}'입니다.`}
+              <div className={`p-3 rounded-lg text-center font-medium ${
+                isCorrect 
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-red-100 text-red-700'
+              }`}>
+                {isCorrect ? (
+                  <div className="flex items-center justify-center">
+                    <span className="text-xl mr-2">🎯</span>
+                    <span>정답입니다!</span>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-center justify-center">
+                      <span className="text-xl mr-2">❌</span>
+                      <span>틀렸습니다.</span>
+                    </div>
+                    <div className="mt-1">
+                      정답은 <span className="font-bold">{card.front}</span> 입니다.
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

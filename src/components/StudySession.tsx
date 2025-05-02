@@ -5,6 +5,12 @@ import { getCardsByBox, updateCardBox } from '../utils/leitner';
 import { FlashCard as FlashCardType, BOX_NAMES } from '../utils/types';
 import FlashCard from './FlashCard';
 
+// 상자 번호에 따른 이모지 반환 함수
+const getBoxEmoji = (boxNumber: number): string => {
+  const emojis = ['🔄', '🏋️‍♂️', '💪', '🧠', '🏆', '🎯'];
+  return emojis[boxNumber] || '📦';
+};
+
 export default function StudySession() {
   const [cards, setCards] = useState<FlashCardType[]>([]);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
@@ -73,31 +79,49 @@ export default function StudySession() {
   if (!studyStarted) {
     return (
       <div>
-        <h2 className="text-xl font-bold mb-6 text-center">학습할 상자 선택</h2>
+        <h2 className="text-xl md:text-2xl font-bold mb-6 text-center bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] bg-clip-text text-transparent">
+          🏋️‍♂️ 오늘의 두뇌 트레이닝
+        </h2>
         
         <div className="space-y-6">
+          <p className="text-center text-[var(--neutral-700)] mb-4">
+            어떤 강도로 두뇌를 단련하시겠습니까?
+          </p>
+          
           <div className="flex flex-col space-y-3">
             {[1, 2, 3, 4, 5].map((boxNum) => (
               <button
                 key={boxNum}
                 className={`px-4 py-3 border rounded-lg text-left transition-colors ${
                   selectedBox === boxNum
-                    ? 'bg-indigo-50 border-indigo-500'
-                    : 'border-gray-300 hover:bg-gray-50'
+                    ? 'bg-[var(--primary)] bg-opacity-10 border-[var(--primary)] text-[var(--foreground)]'
+                    : 'border-[var(--neutral-300)] hover:bg-[var(--neutral-200)]'
                 }`}
                 onClick={() => setSelectedBox(boxNum)}
               >
-                <span className="font-medium">상자 {boxNum}: {BOX_NAMES[boxNum as keyof typeof BOX_NAMES]}</span>
+                <div className="flex items-center">
+                  <span className="text-xl mr-3">{getBoxEmoji(boxNum)}</span>
+                  <div>
+                    <span className="font-medium">상자 {boxNum}: {BOX_NAMES[boxNum as keyof typeof BOX_NAMES]}</span>
+                    <p className="text-xs text-[var(--neutral-700)] mt-1">
+                      {boxNum === 1 ? '신규 학습 카드 - 처음 배우는 내용' : 
+                       boxNum === 2 ? '자주 복습해야 하는 카드' : 
+                       boxNum === 3 ? '익숙해진 카드' : 
+                       boxNum === 4 ? '거의 암기된 카드' : 
+                       '완전히 암기된 카드'}
+                    </p>
+                  </div>
+                </div>
               </button>
             ))}
           </div>
           
           <button
-            className="mt-4 w-full py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="mt-6 w-full py-3 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md"
             onClick={() => selectedBox && setStudyStarted(true)}
             disabled={selectedBox === null}
           >
-            학습 시작
+            💪 트레이닝 시작
           </button>
         </div>
       </div>
@@ -106,8 +130,9 @@ export default function StudySession() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-xl">로딩 중...</div>
+      <div className="flex flex-col items-center justify-center p-8">
+        <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-[var(--primary)] border-r-transparent"></div>
+        <p className="mt-4 text-[var(--neutral-700)]">운동 세션 준비 중...</p>
       </div>
     );
   }
@@ -115,28 +140,51 @@ export default function StudySession() {
   if (completed) {
     return (
       <div className="text-center">
-        <h2 className="text-2xl font-bold mb-4">
-          상자 {selectedBox} 학습 완료!
+        <h2 className="text-2xl font-bold mb-4 bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] bg-clip-text text-transparent">
+          {getBoxEmoji(selectedBox || 0)} 트레이닝 완료!
         </h2>
         
         {cards.length > 0 ? (
           <div className="mb-8">
-            <p className="text-lg mb-2">학습 결과:</p>
-            <div className="flex justify-center space-x-8">
-              <div className="text-green-500">맞춘 개수: {stats.correct}</div>
-              <div className="text-red-500">틀린 개수: {stats.incorrect}</div>
+            <p className="text-lg mb-4">트레이닝 결과:</p>
+            
+            <div className="flex justify-center gap-4 mb-6">
+              <div className="p-4 bg-green-50 rounded-lg border border-green-100 flex flex-col items-center">
+                <span className="text-green-600 text-2xl font-bold">{stats.correct}</span>
+                <span className="text-green-600 text-sm">정확히 기억</span>
+              </div>
+              
+              <div className="p-4 bg-red-50 rounded-lg border border-red-100 flex flex-col items-center">
+                <span className="text-red-600 text-2xl font-bold">{stats.incorrect}</span>
+                <span className="text-red-600 text-sm">더 연습 필요</span>
+              </div>
             </div>
-            <p className="mt-4 text-gray-600">
-              정확도: {Math.round((stats.correct / (stats.correct + stats.incorrect)) * 100)}%
-            </p>
+            
+            <div className="mb-6">
+              <p className="text-[var(--neutral-700)] mb-2">정확도</p>
+              <div className="h-4 bg-[var(--neutral-200)] rounded-full overflow-hidden w-full max-w-xs mx-auto">
+                <div 
+                  className="h-full bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)]" 
+                  style={{ width: `${Math.round((stats.correct / (stats.correct + stats.incorrect)) * 100)}%` }}
+                ></div>
+              </div>
+              <p className="mt-2 font-bold">
+                {Math.round((stats.correct / (stats.correct + stats.incorrect)) * 100)}%
+              </p>
+            </div>
           </div>
         ) : (
-          <p className="text-lg mb-8">
-            상자 {selectedBox}에는 카드가 없습니다.
-          </p>
+          <div className="p-6 mb-8 bg-[var(--neutral-200)] rounded-lg inline-block">
+            <p className="text-lg">
+              상자 {selectedBox}에는 카드가 없습니다.
+            </p>
+            <p className="text-sm mt-2 text-[var(--neutral-700)]">
+              '카드추가' 탭에서 새로운 카드를 추가해보세요!
+            </p>
+          </div>
         )}
         
-        <div className="flex flex-col sm:flex-row justify-center space-y-3 sm:space-y-0 sm:space-x-3">
+        <div className="flex flex-col sm:flex-row justify-center gap-3">
           <button
             onClick={() => {
               if (selectedBox !== null) {
@@ -144,15 +192,15 @@ export default function StudySession() {
                 loadCardsByBox(selectedBox);
               }
             }}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            className="px-4 py-3 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors shadow-md"
           >
-            다시 학습하기
+            🔄 다시 도전하기
           </button>
           <button
             onClick={resetStudy}
-            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            className="px-4 py-3 bg-[var(--neutral-700)] text-white rounded-lg hover:bg-[var(--neutral-900)] transition-colors"
           >
-            다른 상자 선택하기
+            ↩️ 다른 세트 선택하기
           </button>
         </div>
       </div>
@@ -162,38 +210,47 @@ export default function StudySession() {
   return (
     <div className="w-full max-w-xl mx-auto">
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-center">
-          상자 {selectedBox} 학습
+        <h2 className="text-xl font-bold text-center bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] bg-clip-text text-transparent">
+          {getBoxEmoji(selectedBox || 0)} 상자 {selectedBox} 두뇌 트레이닝
         </h2>
-        <p className="text-sm text-gray-600 text-center">
-          {currentCardIndex + 1} / {cards.length}
-        </p>
-        <div className="w-full bg-gray-200 h-2 mt-2 rounded-full overflow-hidden">
+        
+        <div className="flex justify-between items-center mt-2 mb-4">
+          <span className="text-sm text-[var(--neutral-700)]">진행도</span>
+          <span className="text-sm font-medium">{currentCardIndex + 1} / {cards.length}</span>
+        </div>
+        
+        <div className="w-full bg-[var(--neutral-200)] h-2 rounded-full overflow-hidden">
           <div 
-            className="bg-indigo-600 h-full rounded-full transition-all"
+            className="bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] h-full rounded-full transition-all"
             style={{ width: `${((currentCardIndex + 1) / cards.length) * 100}%` }}
           ></div>
         </div>
       </div>
       
       {cards.length > 0 && (
-        <FlashCard
-          key={cards[currentCardIndex].id}
-          card={cards[currentCardIndex]}
-          onAnswer={handleAnswer}
-        />
+        <div className="mb-6">
+          <FlashCard
+            key={cards[currentCardIndex].id}
+            card={cards[currentCardIndex]}
+            onAnswer={handleAnswer}
+          />
+        </div>
       )}
       
-      <div className="mt-4 text-center text-sm text-gray-500">
-        <p>보이는 문제를 보고 정답을 입력하세요.</p>
-        <p>대소문자는 구분하지 않으며, 철자와 순서만 정확하면 정답으로 인정됩니다.</p>
+      <div className="mt-6 p-4 bg-[var(--neutral-200)] rounded-lg text-sm text-[var(--neutral-700)]">
+        <p className="font-medium mb-1">📝 트레이닝 지침</p>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>보이는 문제를 보고 정답을 입력하세요</li>
+          <li>대소문자는 구분하지 않습니다</li>
+          <li>철자와 순서가 정확하면 정답으로 인정됩니다</li>
+        </ul>
       </div>
       
       <button
         onClick={resetStudy}
-        className="mt-6 w-full px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+        className="mt-6 w-full px-4 py-3 bg-[var(--neutral-700)] text-white rounded-lg hover:bg-[var(--neutral-900)] transition-colors"
       >
-        학습 중단하기
+        ⏹️ 트레이닝 중단하기
       </button>
     </div>
   );
