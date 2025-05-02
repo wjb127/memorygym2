@@ -89,8 +89,8 @@ export default function StudySession() {
   // 학습 시작 전 상자 선택 화면
   if (!studyStarted) {
     return (
-      <div className="bg-white rounded-xl shadow-md p-8">
-        <h2 className="text-2xl font-bold mb-6 text-center">학습 모드 선택</h2>
+      <div>
+        <h2 className="text-xl font-bold mb-6 text-center">학습 모드 선택</h2>
         
         <div className="space-y-6">
           <div>
@@ -147,7 +147,7 @@ export default function StudySession() {
 
   if (completed) {
     return (
-      <div className="bg-white rounded-xl shadow-md p-8 text-center">
+      <div className="text-center">
         <h2 className="text-2xl font-bold mb-4">
           {selectedBox ? `상자 ${selectedBox} 학습 완료!` : '오늘의 학습 완료!'}
         </h2>
@@ -196,7 +196,7 @@ export default function StudySession() {
   }
 
   return (
-    <div className="w-full max-w-lg mx-auto">
+    <div className="w-full max-w-xl mx-auto">
       <div className="mb-6">
         <h2 className="text-xl font-bold text-center">
           {selectedBox ? `상자 ${selectedBox} 학습` : '오늘의 학습'}

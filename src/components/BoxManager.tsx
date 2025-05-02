@@ -1,112 +1,176 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getCardsByBox, deleteCard } from '../utils/leitner';
-import { FlashCard as FlashCardType, BOX_NAMES, BOX_COLORS } from '../utils/types';
+import { getCardsByBox, updateCardBox, deleteCard } from '../utils/leitner';
+import { FlashCard, BOX_NAMES } from '../utils/types';
 
 export default function BoxManager() {
-  const [selectedBox, setSelectedBox] = useState(1);
-  const [cards, setCards] = useState<FlashCardType[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [cards, setCards] = useState<FlashCard[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedBox, setSelectedBox] = useState<number>(1);
+  const [cardToDelete, setCardToDelete] = useState<FlashCard | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  // useCallback을 사용하여 loadCards 함수를 메모이제이션
   const loadCards = useCallback(async () => {
     try {
       setLoading(true);
       const boxCards = await getCardsByBox(selectedBox);
       setCards(boxCards);
     } catch (error) {
-      console.error('카드 로드 오류:', error);
+      console.error(`카드 로드 오류 (상자 ${selectedBox}):`, error);
     } finally {
       setLoading(false);
     }
-  }, [selectedBox]); // selectedBox가 변경될 때만 함수가 다시 생성됨
+  }, [selectedBox]);
 
   useEffect(() => {
     loadCards();
-  }, [loadCards]); // 이제 loadCards 함수를 종속성으로 추가
+  }, [loadCards]);
 
-  const handleDeleteCard = async (cardId: number) => {
-    if (confirm('정말로 이 카드를 삭제하시겠습니까?')) {
-      try {
-        const success = await deleteCard(cardId);
-        if (success) {
-          setCards(cards.filter(card => card.id !== cardId));
-          alert('카드가 삭제되었습니다.');
-        }
-      } catch (error) {
-        console.error('카드 삭제 오류:', error);
-        alert('카드 삭제 중 오류가 발생했습니다.');
-      }
+  const handleBoxChange = (boxNumber: number) => {
+    setSelectedBox(boxNumber);
+  };
+
+  const handleMoveCard = async (cardId: number, targetBox: number) => {
+    try {
+      // 서버에 카드 이동 요청
+      await updateCardBox(cardId, targetBox === selectedBox + 1); // true면 승급, false면 하향
+      
+      // UI 업데이트 - 카드 제거
+      setCards(prev => prev.filter(card => card.id !== cardId));
+    } catch (error) {
+      console.error('카드 이동 오류:', error);
+    }
+  };
+
+  const openDeleteModal = (card: FlashCard) => {
+    setCardToDelete(card);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!cardToDelete) return;
+    
+    try {
+      await deleteCard(cardToDelete.id);
+      setCards(prev => prev.filter(card => card.id !== cardToDelete.id));
+      setShowDeleteModal(false);
+    } catch (error) {
+      console.error('카드 삭제 오류:', error);
     }
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-md p-6">
-      <h2 className="text-xl font-bold mb-4">카드 상자 관리</h2>
+    <div>
+      <h2 className="text-xl font-bold mb-4 text-center">카드 관리</h2>
       
       <div className="mb-6">
-        <label htmlFor="boxSelect" className="block text-sm font-medium text-gray-700 mb-2">
-          상자 선택
-        </label>
-        <select
-          id="boxSelect"
-          value={selectedBox}
-          onChange={(e) => setSelectedBox(Number(e.target.value))}
-          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-        >
+        <div className="flex flex-wrap justify-center gap-2 mb-4">
           {[1, 2, 3, 4, 5].map((boxNum) => (
-            <option key={boxNum} value={boxNum}>
-              상자 {boxNum}: {BOX_NAMES[boxNum as keyof typeof BOX_NAMES]}
-            </option>
+            <button
+              key={boxNum}
+              className={`py-2 px-4 text-sm rounded-md transition-colors ${
+                selectedBox === boxNum
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+              }`}
+              onClick={() => handleBoxChange(boxNum)}
+            >
+              {boxNum}. {BOX_NAMES[boxNum as keyof typeof BOX_NAMES]}
+            </button>
           ))}
-        </select>
+        </div>
+        
+        <p className="text-sm text-center text-gray-600 mb-2">
+          현재 상자 {selectedBox}: {BOX_NAMES[selectedBox as keyof typeof BOX_NAMES]}
+          {cards.length > 0 ? ` (${cards.length}장)` : ' (비어 있음)'}
+        </p>
       </div>
-      
+
       {loading ? (
-        <div className="text-center py-4">로딩 중...</div>
+        <div className="text-center py-8">로딩 중...</div>
+      ) : cards.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">
+          이 상자에는 카드가 없습니다.
+        </div>
       ) : (
-        <div>
-          <h3 className="font-medium mb-3">
-            총 {cards.length}개의 카드
-          </h3>
-          
-          {cards.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">
-              이 상자에는 카드가 없습니다.
-            </p>
-          ) : (
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {cards.map((card) => (
-                <div 
-                  key={card.id} 
-                  className={`border-l-4 ${BOX_COLORS[card.box_number as keyof typeof BOX_COLORS]} rounded-lg p-4 flex justify-between items-center bg-white shadow-sm`}
-                >
-                  <div className="flex-grow">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium">{card.front}</span>
-                      <span className="text-gray-400 text-sm">→</span>
-                      <span className="text-gray-600">{card.back}</span>
-                    </div>
-                    <div className="text-xs text-gray-400 mt-1">
-                      마지막 학습: {new Date(card.last_reviewed).toLocaleDateString()}
-                      <span className="mx-2">•</span>
-                      다음 학습: {new Date(card.next_review).toLocaleDateString()}
-                    </div>
-                  </div>
+        <div className="space-y-4">
+          {cards.map((card) => (
+            <div 
+              key={card.id}
+              className="border border-gray-200 rounded-lg p-4 hover:border-indigo-300 transition-colors"
+            >
+              <div className="flex justify-between mb-2">
+                <div className="font-medium">{card.front}</div>
+                <div className="text-gray-500">{card.back}</div>
+              </div>
+              
+              <div className="flex items-center justify-between mt-2">
+                <div className="text-xs text-gray-500">
+                  {new Date(card.last_reviewed || Date.now()).toLocaleDateString()}
+                </div>
+                
+                <div className="flex space-x-2">
+                  {selectedBox < 5 && (
+                    <button
+                      onClick={() => handleMoveCard(card.id, selectedBox + 1)}
+                      className="text-xs px-2 py-1 bg-green-50 text-green-700 rounded border border-green-200 hover:bg-green-100"
+                    >
+                      상자 {selectedBox + 1}로 승급
+                    </button>
+                  )}
+                  
+                  {selectedBox > 1 && (
+                    <button
+                      onClick={() => handleMoveCard(card.id, selectedBox - 1)}
+                      className="text-xs px-2 py-1 bg-orange-50 text-orange-700 rounded border border-orange-200 hover:bg-orange-100"
+                    >
+                      상자 {selectedBox - 1}로 하향
+                    </button>
+                  )}
+                  
                   <button
-                    onClick={() => handleDeleteCard(card.id)}
-                    className="ml-4 text-red-500 hover:text-red-700 p-1"
-                    aria-label="카드 삭제"
+                    onClick={() => openDeleteModal(card)}
+                    className="text-xs px-2 py-1 bg-red-50 text-red-700 rounded border border-red-200 hover:bg-red-100"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
+                    삭제
                   </button>
                 </div>
-              ))}
+              </div>
             </div>
-          )}
+          ))}
+        </div>
+      )}
+      
+      {/* 삭제 확인 모달 */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm mx-4">
+            <h3 className="text-lg font-medium mb-4">카드 삭제 확인</h3>
+            
+            <div className="mb-6">
+              <p className="mb-2">정말 이 카드를 삭제하시겠습니까?</p>
+              <div className="bg-gray-50 p-3 rounded text-sm">
+                <div><span className="font-medium">앞면:</span> {cardToDelete?.front}</div>
+                <div><span className="font-medium">뒷면:</span> {cardToDelete?.back}</div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-3 py-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
