@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getTodaysCards, getCardsByBox, updateCardBox } from '../utils/leitner';
+import { getCardsByBox, updateCardBox } from '../utils/leitner';
 import { FlashCard as FlashCardType, BOX_NAMES } from '../utils/types';
 import FlashCard from './FlashCard';
 
@@ -21,24 +21,7 @@ export default function StudySession() {
     }
   }, [selectedBox, studyStarted]);
 
-  // 오늘의 학습 카드 로드 (기존 방식)
-  const loadTodaysCards = async () => {
-    try {
-      setLoading(true);
-      const todaysCards = await getTodaysCards();
-      setCards(todaysCards);
-      setCurrentCardIndex(0);
-      setCompleted(todaysCards.length === 0);
-      setStats({ correct: 0, incorrect: 0 });
-      setStudyStarted(true);
-    } catch (error) {
-      console.error('카드 로드 오류:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 특정 상자의 카드 로드 (새로운 방식)
+  // 특정 상자의 카드 로드
   const loadCardsByBox = async (boxNumber: number) => {
     try {
       setLoading(true);
@@ -90,48 +73,32 @@ export default function StudySession() {
   if (!studyStarted) {
     return (
       <div>
-        <h2 className="text-xl font-bold mb-6 text-center">학습 모드 선택</h2>
+        <h2 className="text-xl font-bold mb-6 text-center">학습할 상자 선택</h2>
         
         <div className="space-y-6">
-          <div>
-            <h3 className="text-lg font-medium mb-3">상자 선택하여 학습</h3>
-            <div className="flex flex-col space-y-3">
-              {[1, 2, 3, 4, 5].map((boxNum) => (
-                <button
-                  key={boxNum}
-                  className={`px-4 py-3 border rounded-lg text-left transition-colors ${
-                    selectedBox === boxNum
-                      ? 'bg-indigo-50 border-indigo-500'
-                      : 'border-gray-300 hover:bg-gray-50'
-                  }`}
-                  onClick={() => setSelectedBox(boxNum)}
-                >
-                  <span className="font-medium">상자 {boxNum}: {BOX_NAMES[boxNum as keyof typeof BOX_NAMES]}</span>
-                </button>
-              ))}
-            </div>
-            
-            <button
-              className="mt-4 w-full py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={() => selectedBox && setStudyStarted(true)}
-              disabled={selectedBox === null}
-            >
-              선택한 상자로 학습 시작
-            </button>
+          <div className="flex flex-col space-y-3">
+            {[1, 2, 3, 4, 5].map((boxNum) => (
+              <button
+                key={boxNum}
+                className={`px-4 py-3 border rounded-lg text-left transition-colors ${
+                  selectedBox === boxNum
+                    ? 'bg-indigo-50 border-indigo-500'
+                    : 'border-gray-300 hover:bg-gray-50'
+                }`}
+                onClick={() => setSelectedBox(boxNum)}
+              >
+                <span className="font-medium">상자 {boxNum}: {BOX_NAMES[boxNum as keyof typeof BOX_NAMES]}</span>
+              </button>
+            ))}
           </div>
           
-          <div className="border-t border-gray-200 pt-6">
-            <h3 className="text-lg font-medium mb-3">오늘의 학습</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              오늘 복습할 모든 카드를 학습합니다. 다양한 상자의 카드가 포함될 수 있습니다.
-            </p>
-            <button
-              className="w-full py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-              onClick={loadTodaysCards}
-            >
-              오늘의 학습 시작
-            </button>
-          </div>
+          <button
+            className="mt-4 w-full py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => selectedBox && setStudyStarted(true)}
+            disabled={selectedBox === null}
+          >
+            학습 시작
+          </button>
         </div>
       </div>
     );
@@ -149,7 +116,7 @@ export default function StudySession() {
     return (
       <div className="text-center">
         <h2 className="text-2xl font-bold mb-4">
-          {selectedBox ? `상자 ${selectedBox} 학습 완료!` : '오늘의 학습 완료!'}
+          상자 {selectedBox} 학습 완료!
         </h2>
         
         {cards.length > 0 ? (
@@ -165,7 +132,7 @@ export default function StudySession() {
           </div>
         ) : (
           <p className="text-lg mb-8">
-            {selectedBox ? `상자 ${selectedBox}에는 카드가 없습니다.` : '오늘 학습할 카드가 없습니다.'}
+            상자 {selectedBox}에는 카드가 없습니다.
           </p>
         )}
         
@@ -175,9 +142,6 @@ export default function StudySession() {
               if (selectedBox !== null) {
                 // 같은 상자 다시 공부
                 loadCardsByBox(selectedBox);
-              } else {
-                // 오늘의 학습 다시 로드
-                loadTodaysCards();
               }
             }}
             className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
@@ -199,7 +163,7 @@ export default function StudySession() {
     <div className="w-full max-w-xl mx-auto">
       <div className="mb-6">
         <h2 className="text-xl font-bold text-center">
-          {selectedBox ? `상자 ${selectedBox} 학습` : '오늘의 학습'}
+          상자 {selectedBox} 학습
         </h2>
         <p className="text-sm text-gray-600 text-center">
           {currentCardIndex + 1} / {cards.length}
