@@ -19,17 +19,17 @@ export default function Home() {
   const tabs = [
     {
       id: 'study',
-      label: '🏋️‍♂️ 암기훈련',
+      label: <><span className="hidden sm:inline">🏋️‍♂️ 암기</span><span className="sm:hidden">🏋️‍♂️</span></>,
       content: <StudySession />
     },
     {
       id: 'add',
-      label: '🧠 카드추가',
+      label: <><span className="hidden sm:inline">🧠 추가</span><span className="sm:hidden">🧠</span></>,
       content: <AddCardForm onCardAdded={handleCardAdded} />
     },
     {
       id: 'manage',
-      label: '📊 카드관리',
+      label: <><span className="hidden sm:inline">📊 관리</span><span className="sm:hidden">📊</span></>,
       content: <BoxManager />
     }
   ];

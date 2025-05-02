@@ -4,7 +4,7 @@ import { useState, ReactNode } from 'react';
 
 interface TabItem {
   id: string;
-  label: string;
+  label: ReactNode;
   content: ReactNode;
 }
 
@@ -18,11 +18,11 @@ export default function TabLayout({ tabs }: TabLayoutProps) {
   return (
     <div>
       {/* 탭 헤더 */}
-      <div className="flex border-b-2 border-[var(--neutral-300)] mb-6 overflow-x-auto">
+      <div className="flex border-b-2 border-[var(--neutral-300)] mb-6">
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            className={`px-6 py-4 text-sm md:text-base font-medium border-b-2 transition-colors -mb-0.5 whitespace-nowrap ${
+            className={`flex-1 px-3 sm:px-4 py-3 text-sm md:text-base font-medium border-b-2 transition-colors -mb-0.5 ${
               activeTab === tab.id
                 ? 'border-[var(--primary)] text-[var(--primary)] font-bold'
                 : 'border-transparent text-[var(--neutral-700)] hover:text-[var(--foreground)] hover:border-[var(--neutral-500)]'
