@@ -72,7 +72,7 @@ export default function AddCardForm({ onCardAdded }: AddCardFormProps) {
       const parts = line.split(',').map(part => part.trim());
       
       if (parts.length !== 2 || !parts[0] || !parts[1]) {
-        errors.push(`${i + 1}번째 줄: 올바른 형식이 아닙니다. (앞면, 뒷면)`);
+        errors.push(`${i + 1}번째 줄: 올바른 형식이 아닙니다. (정답, 문제)`);
         continue;
       }
 
@@ -147,7 +147,7 @@ export default function AddCardForm({ onCardAdded }: AddCardFormProps) {
           <>
             <div>
               <label htmlFor="front" className="block text-sm font-medium text-gray-700 mb-1">
-                앞면 (예: 단어)
+                정답 (예: 단어)
               </label>
               <input
                 type="text"
@@ -155,13 +155,13 @@ export default function AddCardForm({ onCardAdded }: AddCardFormProps) {
                 value={front}
                 onChange={(e) => setFront(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="영어 단어 또는 외울 내용을 입력하세요"
+                placeholder="정답이 되는 단어나 내용을 입력하세요"
               />
             </div>
             
             <div>
               <label htmlFor="back" className="block text-sm font-medium text-gray-700 mb-1">
-                뒷면 (예: 의미)
+                문제 (예: 설명)
               </label>
               <input
                 type="text"
@@ -169,14 +169,14 @@ export default function AddCardForm({ onCardAdded }: AddCardFormProps) {
                 value={back}
                 onChange={(e) => setBack(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="단어의 뜻이나 설명을 입력하세요"
+                placeholder="문제가 되는 설명이나 힌트를 입력하세요"
               />
             </div>
           </>
         ) : (
           <div>
             <label htmlFor="bulkText" className="block text-sm font-medium text-gray-700 mb-1">
-              대량 카드 (앞면, 뒷면 형식)
+              대량 카드 (정답, 문제 형식)
             </label>
             <textarea
               id="bulkText"
@@ -184,14 +184,14 @@ export default function AddCardForm({ onCardAdded }: AddCardFormProps) {
               onChange={(e) => setBulkText(e.target.value)}
               rows={8}
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="각 줄마다 한 개의 카드를 추가합니다. 형식: 앞면, 뒷면
+              placeholder="각 줄마다 한 개의 카드를 추가합니다. 형식: 정답, 문제
 예시:
-apple, 사과
-book, 책
-computer, 컴퓨터"
+apple, 사과는 영어로?
+book, 책은 영어로?
+computer, 컴퓨터는 영어로?"
             />
             <p className="mt-1 text-sm text-gray-500">
-              각 줄에 하나의 카드를 앞면과 뒷면을 쉼표로 구분하여 입력하세요.
+              각 줄에 하나의 카드를 정답과 문제를 쉼표로 구분하여 입력하세요.
             </p>
           </div>
         )}

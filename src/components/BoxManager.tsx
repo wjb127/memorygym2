@@ -202,8 +202,8 @@ export default function BoxManager() {
             <div className="mb-6">
               <p className="mb-2">정말 이 카드를 삭제하시겠습니까?</p>
               <div className="bg-gray-50 p-3 rounded text-sm">
-                <div><span className="font-medium">앞면:</span> {cardToDelete?.front}</div>
-                <div><span className="font-medium">뒷면:</span> {cardToDelete?.back}</div>
+                <div><span className="font-medium">정답:</span> {cardToDelete?.front}</div>
+                <div><span className="font-medium">문제:</span> {cardToDelete?.back}</div>
               </div>
             </div>
             
@@ -234,7 +234,7 @@ export default function BoxManager() {
             <form onSubmit={confirmEdit} className="space-y-4">
               <div>
                 <label htmlFor="front" className="block text-sm font-medium text-gray-700 mb-1">
-                  앞면
+                  정답
                 </label>
                 <input
                   type="text"
@@ -249,7 +249,7 @@ export default function BoxManager() {
               
               <div>
                 <label htmlFor="back" className="block text-sm font-medium text-gray-700 mb-1">
-                  뒷면
+                  문제
                 </label>
                 <input
                   type="text"

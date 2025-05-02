@@ -221,7 +221,7 @@ export default function StudySession() {
       )}
       
       <div className="mt-4 text-center text-sm text-gray-500">
-        <p>보이는 뜻을 보고 단어를 입력하세요.</p>
+        <p>보이는 문제를 보고 정답을 입력하세요.</p>
         <p>대소문자는 구분하지 않으며, 철자와 순서만 정확하면 정답으로 인정됩니다.</p>
       </div>
       
