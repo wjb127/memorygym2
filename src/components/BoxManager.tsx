@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getCardsByBox, updateCardBox, deleteCard, updateCard } from '../utils/leitner';
+import { getCardsByBox, updateCardBox, deleteCard, updateCard, getAllCards } from '../utils/leitner';
 import { FlashCard, BOX_NAMES } from '../utils/types';
 
 export default function BoxManager() {
   const [cards, setCards] = useState<FlashCard[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedBox, setSelectedBox] = useState<number>(1);
+  const [selectedBox, setSelectedBox] = useState<number | 'all'>(1);
   const [cardToDelete, setCardToDelete] = useState<FlashCard | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [cardToEdit, setCardToEdit] = useState<FlashCard | null>(null);
@@ -17,10 +17,17 @@ export default function BoxManager() {
   const loadCards = useCallback(async () => {
     try {
       setLoading(true);
-      const boxCards = await getCardsByBox(selectedBox);
-      setCards(boxCards);
+      if (selectedBox === 'all') {
+        // 모든 카드 로드
+        const allCards = await getAllCards();
+        setCards(allCards);
+      } else {
+        // 특정 상자의 카드만 로드
+        const boxCards = await getCardsByBox(selectedBox as number);
+        setCards(boxCards);
+      }
     } catch (error) {
-      console.error(`카드 로드 오류 (상자 ${selectedBox}):`, error);
+      console.error(`카드 로드 오류 (${selectedBox === 'all' ? '전체' : `상자 ${selectedBox}`}):`, error);
     } finally {
       setLoading(false);
     }
@@ -30,17 +37,30 @@ export default function BoxManager() {
     loadCards();
   }, [loadCards]);
 
-  const handleBoxChange = (boxNumber: number) => {
+  const handleBoxChange = (boxNumber: number | 'all') => {
     setSelectedBox(boxNumber);
   };
 
   const handleMoveCard = async (cardId: number, targetBox: number) => {
     try {
       // 서버에 카드 이동 요청
-      await updateCardBox(cardId, targetBox === selectedBox + 1); // true면 승급, false면 하향
+      const currentBox = typeof selectedBox === 'number' ? selectedBox : 0;
+      await updateCardBox(cardId, targetBox === currentBox + 1); // true면 승급, false면 하향
       
-      // UI 업데이트 - 카드 제거
-      setCards(prev => prev.filter(card => card.id !== cardId));
+      // UI 업데이트 - 카드 제거 또는 상자 번호 업데이트
+      if (selectedBox === 'all') {
+        // 전체 보기 모드에서는 카드의 상자 번호만 업데이트
+        setCards(prev => 
+          prev.map(card => 
+            card.id === cardId 
+              ? { ...card, box_number: targetBox } 
+              : card
+          )
+        );
+      } else {
+        // 특정 상자 보기 모드에서는 카드 제거
+        setCards(prev => prev.filter(card => card.id !== cardId));
+      }
     } catch (error) {
       console.error('카드 이동 오류:', error);
     }
@@ -110,6 +130,17 @@ export default function BoxManager() {
       
       <div className="mb-6">
         <div className="flex flex-wrap justify-center gap-2 mb-4">
+          <button
+            className={`py-2 px-4 text-sm rounded-md transition-colors ${
+              selectedBox === 'all'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+            }`}
+            onClick={() => handleBoxChange('all')}
+          >
+            전체 카드
+          </button>
+          
           {[1, 2, 3, 4, 5].map((boxNum) => (
             <button
               key={boxNum}
@@ -126,8 +157,9 @@ export default function BoxManager() {
         </div>
         
         <p className="text-sm text-center text-gray-600 mb-2">
-          현재 상자 {selectedBox}: {BOX_NAMES[selectedBox as keyof typeof BOX_NAMES]}
-          {cards.length > 0 ? ` (${cards.length}장)` : ' (비어 있음)'}
+          {selectedBox === 'all' 
+            ? `전체 카드 (${cards.length}장)` 
+            : `상자 ${selectedBox}: ${BOX_NAMES[selectedBox as keyof typeof BOX_NAMES]} ${cards.length > 0 ? `(${cards.length}장)` : '(비어 있음)'}`}
         </p>
       </div>
 
@@ -135,7 +167,7 @@ export default function BoxManager() {
         <div className="text-center py-8">로딩 중...</div>
       ) : cards.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
-          이 상자에는 카드가 없습니다.
+          {selectedBox === 'all' ? '카드가 없습니다.' : '이 상자에는 카드가 없습니다.'}
         </div>
       ) : (
         <div className="space-y-4">
@@ -151,6 +183,7 @@ export default function BoxManager() {
               
               <div className="flex items-center justify-between mt-2">
                 <div className="text-xs text-gray-500">
+                  {selectedBox === 'all' && <span className="mr-2 px-1.5 py-0.5 bg-gray-100 rounded">상자 {card.box_number}</span>}
                   {new Date(card.last_reviewed || Date.now()).toLocaleDateString()}
                 </div>
                 
@@ -162,21 +195,21 @@ export default function BoxManager() {
                     수정
                   </button>
                   
-                  {selectedBox < 5 && (
+                  {card.box_number < 5 && (
                     <button
-                      onClick={() => handleMoveCard(card.id, selectedBox + 1)}
+                      onClick={() => handleMoveCard(card.id, card.box_number + 1)}
                       className="text-xs px-2 py-1 bg-green-50 text-green-700 rounded border border-green-200 hover:bg-green-100"
                     >
-                      상자 {selectedBox + 1}로 승급
+                      상자 {card.box_number + 1}로 승급
                     </button>
                   )}
                   
-                  {selectedBox > 1 && (
+                  {card.box_number > 1 && (
                     <button
-                      onClick={() => handleMoveCard(card.id, selectedBox - 1)}
+                      onClick={() => handleMoveCard(card.id, card.box_number - 1)}
                       className="text-xs px-2 py-1 bg-orange-50 text-orange-700 rounded border border-orange-200 hover:bg-orange-100"
                     >
-                      상자 {selectedBox - 1}로 하향
+                      상자 {card.box_number - 1}로 하향
                     </button>
                   )}
                   
