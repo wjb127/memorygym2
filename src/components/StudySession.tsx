@@ -214,6 +214,7 @@ export default function StudySession() {
       
       {cards.length > 0 && (
         <FlashCard
+          key={cards[currentCardIndex].id}
           card={cards[currentCardIndex]}
           onAnswer={handleAnswer}
         />

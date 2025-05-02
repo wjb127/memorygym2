@@ -14,13 +14,22 @@ export default function FlashCard({ card, onAnswer }: FlashCardProps) {
   const [isCorrect, setIsCorrect] = useState(false);
   const [answered, setAnswered] = useState(false);
 
-  // card prop이 변경될 때마다 상태 초기화
+  // 컴포넌트가 마운트될 때와 card가 변경될 때마다 상태 초기화
   useEffect(() => {
+    // 상태 초기화
     setUserAnswer('');
     setShowResult(false);
     setIsCorrect(false);
     setAnswered(false);
-  }, [card.id]); // card의 id가 바뀔 때만 리셋
+    
+    // 포커스 설정 (약간의 딜레이 후)
+    const timer = setTimeout(() => {
+      const inputEl = document.querySelector('input[type="text"]') as HTMLInputElement;
+      if (inputEl) inputEl.focus();
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [card.id]); // card.id가 변경될 때마다 실행
 
   const checkAnswer = (e: FormEvent) => {
     e.preventDefault();
