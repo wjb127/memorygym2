@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getCardsByBox, updateCardBox, deleteCard, updateCard, getAllCards } from '../utils/leitner';
+import { getCardsByBox, updateCardBox, deleteCard, updateCard, getAllCards, searchCards } from '../utils/leitner';
 import { FlashCard, BOX_NAMES } from '../utils/types';
 
 export default function BoxManager() {
@@ -13,6 +13,8 @@ export default function BoxManager() {
   const [cardToEdit, setCardToEdit] = useState<FlashCard | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState({ front: '', back: '' });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
   const loadCards = useCallback(async () => {
     try {
@@ -34,11 +36,16 @@ export default function BoxManager() {
   }, [selectedBox]);
 
   useEffect(() => {
-    loadCards();
-  }, [loadCards]);
+    // 검색 모드가 아닐 때만 카드 로드
+    if (!isSearching) {
+      loadCards();
+    }
+  }, [loadCards, isSearching]);
 
   const handleBoxChange = (boxNumber: number | 'all') => {
     setSelectedBox(boxNumber);
+    setSearchTerm('');
+    setIsSearching(false);
   };
 
   const handleMoveCard = async (cardId: number, targetBox: number) => {
@@ -48,8 +55,8 @@ export default function BoxManager() {
       await updateCardBox(cardId, targetBox === currentBox + 1); // true면 승급, false면 하향
       
       // UI 업데이트 - 카드 제거 또는 상자 번호 업데이트
-      if (selectedBox === 'all') {
-        // 전체 보기 모드에서는 카드의 상자 번호만 업데이트
+      if (selectedBox === 'all' || isSearching) {
+        // 전체 보기 모드 또는 검색 모드에서는 카드의 상자 번호만 업데이트
         setCards(prev => 
           prev.map(card => 
             card.id === cardId 
@@ -64,6 +71,35 @@ export default function BoxManager() {
     } catch (error) {
       console.error('카드 이동 오류:', error);
     }
+  };
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!searchTerm.trim()) {
+      // 검색어가 비어있으면 원래 상태로 돌아감
+      setIsSearching(false);
+      loadCards();
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setIsSearching(true);
+      
+      // 검색 실행
+      const searchResults = await searchCards(searchTerm);
+      setCards(searchResults);
+    } catch (error) {
+      console.error('검색 오류:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchTerm('');
+    setIsSearching(false);
   };
 
   const openDeleteModal = (card: FlashCard) => {
@@ -128,15 +164,45 @@ export default function BoxManager() {
     <div>
       <h2 className="text-xl font-bold mb-4 text-center">카드 관리</h2>
       
+      {/* 검색 기능 */}
+      <div className="mb-6">
+        <form onSubmit={handleSearch} className="flex gap-2 mb-4">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="정답 또는 문제 검색"
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          />
+          <button
+            type="submit"
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+          >
+            검색
+          </button>
+          {isSearching && (
+            <button
+              type="button"
+              onClick={clearSearch}
+              className="px-3 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+            >
+              초기화
+            </button>
+          )}
+        </form>
+      </div>
+      
+      {/* 상자 선택 버튼 */}
       <div className="mb-6">
         <div className="flex flex-wrap justify-center gap-2 mb-4">
           <button
             className={`py-2 px-4 text-sm rounded-md transition-colors ${
-              selectedBox === 'all'
+              selectedBox === 'all' && !isSearching
                 ? 'bg-indigo-600 text-white'
                 : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
             }`}
             onClick={() => handleBoxChange('all')}
+            disabled={isSearching}
           >
             전체 카드
           </button>
@@ -145,11 +211,12 @@ export default function BoxManager() {
             <button
               key={boxNum}
               className={`py-2 px-4 text-sm rounded-md transition-colors ${
-                selectedBox === boxNum
+                selectedBox === boxNum && !isSearching
                   ? 'bg-indigo-600 text-white'
                   : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
               }`}
               onClick={() => handleBoxChange(boxNum)}
+              disabled={isSearching}
             >
               {boxNum}. {BOX_NAMES[boxNum as keyof typeof BOX_NAMES]}
             </button>
@@ -157,9 +224,11 @@ export default function BoxManager() {
         </div>
         
         <p className="text-sm text-center text-gray-600 mb-2">
-          {selectedBox === 'all' 
-            ? `전체 카드 (${cards.length}장)` 
-            : `상자 ${selectedBox}: ${BOX_NAMES[selectedBox as keyof typeof BOX_NAMES]} ${cards.length > 0 ? `(${cards.length}장)` : '(비어 있음)'}`}
+          {isSearching 
+            ? `검색 결과: "${searchTerm}" (${cards.length}장)` 
+            : selectedBox === 'all' 
+              ? `전체 카드 (${cards.length}장)` 
+              : `상자 ${selectedBox}: ${BOX_NAMES[selectedBox as keyof typeof BOX_NAMES]} ${cards.length > 0 ? `(${cards.length}장)` : '(비어 있음)'}`}
         </p>
       </div>
 
@@ -167,7 +236,11 @@ export default function BoxManager() {
         <div className="text-center py-8">로딩 중...</div>
       ) : cards.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
-          {selectedBox === 'all' ? '카드가 없습니다.' : '이 상자에는 카드가 없습니다.'}
+          {isSearching 
+            ? '검색 결과가 없습니다.' 
+            : selectedBox === 'all' 
+              ? '카드가 없습니다.' 
+              : '이 상자에는 카드가 없습니다.'}
         </div>
       ) : (
         <div className="space-y-4">
@@ -183,7 +256,7 @@ export default function BoxManager() {
               
               <div className="flex items-center justify-between mt-2">
                 <div className="text-xs text-gray-500">
-                  {selectedBox === 'all' && <span className="mr-2 px-1.5 py-0.5 bg-gray-100 rounded">상자 {card.box_number}</span>}
+                  {(selectedBox === 'all' || isSearching) && <span className="mr-2 px-1.5 py-0.5 bg-gray-100 rounded">상자 {card.box_number}</span>}
                   {new Date(card.last_reviewed || Date.now()).toLocaleDateString()}
                 </div>
                 

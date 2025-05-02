@@ -160,4 +160,29 @@ export async function updateCard(card: FlashCard) {
   }
   
   return data?.[0] as FlashCard;
+}
+
+/**
+ * 검색어가 포함된 카드를 찾습니다.
+ * front(정답) 또는 back(문제) 필드에 검색어가 포함된 카드를 반환합니다.
+ */
+export async function searchCards(searchText: string): Promise<FlashCard[]> {
+  try {
+    // ilike는 대소문자를 구분하지 않는 LIKE 연산
+    const { data, error } = await supabase
+      .from('flashcards')
+      .select('*')
+      .or(`front.ilike.%${searchText}%,back.ilike.%${searchText}%`)
+      .order('box_number', { ascending: true });
+    
+    if (error) {
+      console.error('검색 오류:', error);
+      throw new Error(error.message);
+    }
+    
+    return data as FlashCard[];
+  } catch (error) {
+    console.error('검색 처리 오류:', error);
+    throw error;
+  }
 } 
