@@ -278,7 +278,7 @@ export default function BoxManager() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => openEditModal(card)}
-                    className="text-xs px-3 py-1.5 bg-[var(--secondary)] bg-opacity-20 text-[var(--secondary)] rounded-md border border-[var(--secondary)] border-opacity-30 hover:bg-opacity-30"
+                    className="text-xs px-3 py-1.5 bg-[var(--secondary)] bg-opacity-20 text-[var(--foreground)] font-medium rounded-md border border-[var(--secondary)] border-opacity-30 hover:bg-opacity-30"
                   >
                     ✏️ 수정
                   </button>
@@ -303,7 +303,7 @@ export default function BoxManager() {
                   
                   <button
                     onClick={() => openDeleteModal(card)}
-                    className="text-xs px-3 py-1.5 bg-[var(--primary)] bg-opacity-20 text-[var(--primary)] rounded-md border border-[var(--primary)] border-opacity-30 hover:bg-opacity-30"
+                    className="text-xs px-3 py-1.5 bg-[var(--primary)] bg-opacity-20 text-[var(--foreground)] font-medium rounded-md border border-[var(--primary)] border-opacity-30 hover:bg-opacity-30"
                   >
                     🗑️ 삭제
                   </button>
