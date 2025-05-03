@@ -19,14 +19,25 @@ export default function SubjectSelector({
 }: SubjectSelectorProps) {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadSubjects = async () => {
       try {
+        setLoading(true);
+        setError(null);
         const data = await getAllSubjects();
-        setSubjects(data);
-      } catch (error) {
-        console.error('과목 로드 오류:', error);
+        
+        if (Array.isArray(data)) {
+          setSubjects(data);
+        } else {
+          setSubjects([]);
+          setError('과목 데이터 형식이 올바르지 않습니다.');
+        }
+      } catch (err) {
+        console.error('과목 로드 오류:', err);
+        setError('과목을 불러오는 중 오류가 발생했습니다.');
+        setSubjects([]);
       } finally {
         setLoading(false);
       }
@@ -34,6 +45,11 @@ export default function SubjectSelector({
 
     loadSubjects();
   }, []);
+
+  // 기본 과목이 없는 경우 기본 과목 추가
+  const subjectsToDisplay = subjects.length > 0 
+    ? subjects 
+    : [{ id: 1, created_at: new Date().toISOString(), name: '기본 과목', description: '시스템 기본 과목' }];
 
   return (
     <div className="mb-4">
@@ -50,14 +66,16 @@ export default function SubjectSelector({
         {includeAllOption && (
           <option value="">모든 과목</option>
         )}
-        {subjects.map((subject) => (
+        {subjectsToDisplay.map((subject) => (
           <option key={subject.id} value={subject.id}>
             {subject.name}
           </option>
         ))}
         {loading && <option disabled>로딩 중...</option>}
-        {!loading && subjects.length === 0 && <option disabled>등록된 과목이 없습니다</option>}
       </select>
+      {error && (
+        <p className="mt-1 text-sm text-red-600">{error}</p>
+      )}
     </div>
   );
 } 
