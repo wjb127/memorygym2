@@ -47,9 +47,13 @@ export default function PaymentButton({ productName, amount, customerName = '사
       const IMP = window.IMP;
       console.log('가맹점 ID:', process.env.NEXT_PUBLIC_IAMPORT_MERCHANT_ID);
 
+      // 고유한 MID를 포함한 PG사 코드 형식으로 설정
+      const pgProvider = 'nice_v2.iamport03m';
+      console.log('PG사 코드:', pgProvider);
+
       // 결제 데이터 구성
       const paymentData = {
-        pg: 'nice', // PG사 코드
+        pg: pgProvider, // PG사 코드.MID 형식으로 설정
         pay_method: 'card', // 결제 수단
         merchant_uid: merchantUid, // 주문번호
         name: productName, // 주문명
