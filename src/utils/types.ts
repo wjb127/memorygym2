@@ -7,6 +7,14 @@ export type FlashCard = {
   last_reviewed: string; // 마지막 학습 일시
   next_review: string; // 다음 학습 예정 일시
   is_admin_card: boolean; // 관리자 카드 여부
+  subject_id: number; // 과목 ID
+};
+
+export type Subject = {
+  id: number;
+  created_at: string;
+  name: string; // 과목 이름
+  description?: string; // 과목 설명 (선택 사항)
 };
 
 export type ReviewInterval = {

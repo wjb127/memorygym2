@@ -1,13 +1,68 @@
 import { supabase } from './supabase';
-import { FlashCard, ReviewInterval } from './types';
+import { FlashCard, ReviewInterval, Subject } from './types';
 
-// 모든 플래시카드 가져오기
-export async function getAllCards() {
+// 모든 과목 가져오기
+export async function getAllSubjects() {
   const { data, error } = await supabase
+    .from('subjects')
+    .select('*')
+    .order('name');
+  
+  if (error) {
+    console.error('과목 가져오기 오류:', error);
+    return [];
+  }
+  
+  return data as Subject[];
+}
+
+// 특정 ID의 과목 가져오기
+export async function getSubjectById(subjectId: number) {
+  const { data, error } = await supabase
+    .from('subjects')
+    .select('*')
+    .eq('id', subjectId)
+    .single();
+  
+  if (error) {
+    console.error('과목 가져오기 오류:', error);
+    return null;
+  }
+  
+  return data as Subject;
+}
+
+// 새 과목 추가하기
+export async function addSubject(name: string, description?: string) {
+  const { data, error } = await supabase
+    .from('subjects')
+    .insert({
+      name,
+      description
+    })
+    .select();
+  
+  if (error) {
+    console.error('과목 추가 오류:', error);
+    return null;
+  }
+  
+  return data?.[0] as Subject;
+}
+
+// 모든 플래시카드 가져오기 (과목별 필터링 지원)
+export async function getAllCards(subjectId?: number) {
+  let query = supabase
     .from('flashcards')
     .select('*')
-    .eq('is_admin_card', true)
-    .order('id');
+    .eq('is_admin_card', true);
+  
+  // 과목 ID가 제공되면 필터링
+  if (subjectId) {
+    query = query.eq('subject_id', subjectId);
+  }
+  
+  const { data, error } = await query.order('id');
   
   if (error) {
     console.error('카드 가져오기 오류:', error);
@@ -17,14 +72,20 @@ export async function getAllCards() {
   return data as FlashCard[];
 }
 
-// 상자별 카드 가져오기
-export async function getCardsByBox(boxNumber: number) {
-  const { data, error } = await supabase
+// 상자별 카드 가져오기 (과목별 필터링 지원)
+export async function getCardsByBox(boxNumber: number, subjectId?: number) {
+  let query = supabase
     .from('flashcards')
     .select('*')
     .eq('is_admin_card', true)
-    .eq('box_number', boxNumber)
-    .order('id');
+    .eq('box_number', boxNumber);
+  
+  // 과목 ID가 제공되면 필터링
+  if (subjectId) {
+    query = query.eq('subject_id', subjectId);
+  }
+  
+  const { data, error } = await query.order('id');
   
   if (error) {
     console.error(`${boxNumber}번 상자 카드 가져오기 오류:`, error);
@@ -34,15 +95,22 @@ export async function getCardsByBox(boxNumber: number) {
   return data as FlashCard[];
 }
 
-// 오늘 학습할 카드 가져오기
-export async function getTodaysCards() {
+// 오늘 학습할 카드 가져오기 (과목별 필터링 지원)
+export async function getTodaysCards(subjectId?: number) {
   const today = new Date().toISOString();
   
-  const { data, error } = await supabase
+  let query = supabase
     .from('flashcards')
     .select('*')
     .eq('is_admin_card', true)
-    .lte('next_review', today)
+    .lte('next_review', today);
+  
+  // 과목 ID가 제공되면 필터링
+  if (subjectId) {
+    query = query.eq('subject_id', subjectId);
+  }
+  
+  const { data, error } = await query
     .order('box_number')
     .order('id');
   
@@ -54,15 +122,16 @@ export async function getTodaysCards() {
   return data as FlashCard[];
 }
 
-// 새 카드 추가하기
-export async function addCard(front: string, back: string) {
+// 새 카드 추가하기 (과목 지정 가능)
+export async function addCard(front: string, back: string, subjectId: number = 1) {
   const { data, error } = await supabase
     .from('flashcards')
     .insert({
       front,
       back,
       box_number: 1,
-      is_admin_card: true
+      is_admin_card: true,
+      subject_id: subjectId
     })
     .select();
   
@@ -144,12 +213,13 @@ export async function deleteCard(cardId: number) {
 }
 
 // 카드 내용 수정하기
-export async function updateCard(card: FlashCard) {
+export async function updateCard(card: Partial<FlashCard>) {
   const { data, error } = await supabase
     .from('flashcards')
     .update({
       front: card.front,
-      back: card.back
+      back: card.back,
+      subject_id: card.subject_id
     })
     .eq('id', card.id)
     .select();
@@ -165,15 +235,21 @@ export async function updateCard(card: FlashCard) {
 /**
  * 검색어가 포함된 카드를 찾습니다.
  * front(정답) 또는 back(문제) 필드에 검색어가 포함된 카드를 반환합니다.
+ * 추가로 과목별 필터링도 지원합니다.
  */
-export async function searchCards(searchText: string): Promise<FlashCard[]> {
+export async function searchCards(searchText: string, subjectId?: number): Promise<FlashCard[]> {
   try {
-    // ilike는 대소문자를 구분하지 않는 LIKE 연산
-    const { data, error } = await supabase
+    let query = supabase
       .from('flashcards')
       .select('*')
-      .or(`front.ilike.%${searchText}%,back.ilike.%${searchText}%`)
-      .order('box_number', { ascending: true });
+      .or(`front.ilike.%${searchText}%,back.ilike.%${searchText}%`);
+    
+    // 과목 ID가 제공되면 필터링
+    if (subjectId) {
+      query = query.eq('subject_id', subjectId);
+    }
+    
+    const { data, error } = await query.order('box_number', { ascending: true });
     
     if (error) {
       console.error('검색 오류:', error);

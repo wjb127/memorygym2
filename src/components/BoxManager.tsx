@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getCardsByBox, updateCardBox, deleteCard, updateCard, getAllCards, searchCards } from '../utils/leitner';
 import { FlashCard, BOX_NAMES } from '../utils/types';
+import SubjectSelector from './SubjectSelector';
 
 // 상자 번호에 따른 이모지 반환 함수
 const getBoxEmoji = (boxNumber: number): string => {
@@ -13,7 +14,8 @@ const getBoxEmoji = (boxNumber: number): string => {
 export default function BoxManager() {
   const [cards, setCards] = useState<FlashCard[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedBox, setSelectedBox] = useState<number | 'all'>(1);
+  const [selectedBox, setSelectedBox] = useState<number | 'all' | null>(1);
+  const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
   const [cardToDelete, setCardToDelete] = useState<FlashCard | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [cardToEdit, setCardToEdit] = useState<FlashCard | null>(null);
@@ -21,25 +23,56 @@ export default function BoxManager() {
   const [editFormData, setEditFormData] = useState({ front: '', back: '' });
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [totalCards, setTotalCards] = useState<Record<number, number>>({
+    1: 0,
+    2: 0,
+    3: 0,
+    4: 0,
+    5: 0,
+  });
 
   const loadCards = useCallback(async () => {
+    if (selectedBox === null) return;
+    
+    setLoading(true);
     try {
-      setLoading(true);
       if (selectedBox === 'all') {
         // 모든 카드 로드
-        const allCards = await getAllCards();
+        const allCards = await getAllCards(selectedSubject || undefined);
         setCards(allCards);
       } else {
         // 특정 상자의 카드만 로드
-        const boxCards = await getCardsByBox(selectedBox as number);
+        const boxCards = await getCardsByBox(selectedBox as number, selectedSubject || undefined);
         setCards(boxCards);
       }
     } catch (error) {
-      console.error(`카드 로드 오류 (${selectedBox === 'all' ? '전체' : `상자 ${selectedBox}`}):`, error);
+      console.error('카드 로딩 오류:', error);
     } finally {
       setLoading(false);
     }
-  }, [selectedBox]);
+  }, [selectedBox, selectedSubject]);
+
+  const updateTotalCards = useCallback(async () => {
+    try {
+      const boxCounts: Record<number, number> = {
+        1: 0,
+        2: 0,
+        3: 0,
+        4: 0,
+        5: 0,
+      };
+      
+      // 모든 박스의 카드 개수 가져오기
+      for (let box = 1; box <= 5; box++) {
+        const boxCards = await getCardsByBox(box, selectedSubject || undefined);
+        boxCounts[box] = boxCards.length;
+      }
+      
+      setTotalCards(boxCounts);
+    } catch (error) {
+      console.error('카드 개수 업데이트 오류:', error);
+    }
+  }, [selectedSubject]);
 
   useEffect(() => {
     // 검색 모드가 아닐 때만 카드 로드
@@ -48,10 +81,18 @@ export default function BoxManager() {
     }
   }, [loadCards, isSearching]);
 
-  const handleBoxChange = (boxNumber: number | 'all') => {
+  useEffect(() => {
+    updateTotalCards();
+  }, [updateTotalCards]);
+
+  const handleBoxChange = (boxNumber: number | 'all' | null) => {
     setSelectedBox(boxNumber);
     setSearchTerm('');
     setIsSearching(false);
+  };
+
+  const handleSubjectChange = (subjectId: number | null) => {
+    setSelectedSubject(subjectId);
   };
 
   const handleMoveCard = async (cardId: number, targetBox: number) => {
@@ -74,6 +115,9 @@ export default function BoxManager() {
         // 특정 상자 보기 모드에서는 카드 제거
         setCards(prev => prev.filter(card => card.id !== cardId));
       }
+      
+      // 전체 카드 개수 업데이트
+      await updateTotalCards();
     } catch (error) {
       console.error('카드 이동 오류:', error);
     }
@@ -120,6 +164,9 @@ export default function BoxManager() {
       await deleteCard(cardToDelete.id);
       setCards(prev => prev.filter(card => card.id !== cardToDelete.id));
       setShowDeleteModal(false);
+      
+      // 전체 카드 개수 업데이트
+      await updateTotalCards();
     } catch (error) {
       console.error('카드 삭제 오류:', error);
     }
@@ -161,6 +208,9 @@ export default function BoxManager() {
       );
       
       setShowEditModal(false);
+      
+      // 전체 카드 개수 업데이트
+      await updateTotalCards();
     } catch (error) {
       console.error('카드 수정 오류:', error);
     }
@@ -201,42 +251,47 @@ export default function BoxManager() {
       </div>
       
       {/* 상자 선택 버튼 */}
-      <div className="mb-6">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-wrap md:justify-center gap-2 mb-4">
-          <button
-            className={`py-2 px-4 rounded-lg transition-colors ${
-              selectedBox === 'all' && !isSearching
-                ? 'bg-[var(--primary)] text-white shadow-md'
-                : 'bg-[var(--neutral-200)] hover:bg-[var(--neutral-300)] text-[var(--foreground)]'
-            }`}
-            onClick={() => handleBoxChange('all')}
-            disabled={isSearching}
-          >
-            🔄 전체 카드
-          </button>
-          
-          {[1, 2, 3, 4, 5].map((boxNum) => (
-            <button
-              key={boxNum}
-              className={`py-2 px-4 rounded-lg transition-colors ${
-                selectedBox === boxNum && !isSearching
-                  ? 'bg-[var(--primary)] text-white shadow-md'
-                  : 'bg-[var(--neutral-200)] hover:bg-[var(--neutral-300)] text-[var(--foreground)]'
-              }`}
-              onClick={() => handleBoxChange(boxNum)}
-              disabled={isSearching}
-            >
-              {getBoxEmoji(boxNum)} {boxNum}. {BOX_NAMES[boxNum as keyof typeof BOX_NAMES]}
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-col space-y-4 mb-6">
+        <SubjectSelector
+          selectedSubject={selectedSubject}
+          onSubjectChange={handleSubjectChange}
+          includeAllOption={true}
+          label="과목 선택"
+        />
         
+        <div className="bg-[var(--neutral-100)] p-4 rounded-lg border border-[var(--neutral-300)] shadow-sm">
+          <p className="text-sm font-medium mb-3">🧠 박스 선택</p>
+          <div className="flex overflow-x-auto pb-2 space-x-2">
+            {Array.from({length: 5}, (_, i) => i + 1).map(boxNumber => (
+              <button
+                key={boxNumber}
+                onClick={() => handleBoxChange(boxNumber)}
+                className={`flex-shrink-0 px-4 py-2 rounded-lg shadow-sm focus:outline-none ${
+                  selectedBox === boxNumber
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-white border border-[var(--neutral-300)] hover:bg-[var(--neutral-100)]'
+                }`}
+              >
+                <span className="font-medium">박스 {boxNumber}</span>
+                <span className="ml-2 px-2 py-0.5 bg-opacity-20 rounded text-sm">
+                  {totalCards[boxNumber] || 0}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      
+      {/* 상자 선택 결과 */}
+      <div className="mb-6">
         <p className="text-sm text-center text-[var(--neutral-700)] mb-2">
           {isSearching 
             ? `검색 결과: "${searchTerm}" (${cards.length}장)` 
             : selectedBox === 'all' 
               ? `전체 카드 (${cards.length}장)` 
-              : `상자 ${selectedBox}: ${BOX_NAMES[selectedBox as keyof typeof BOX_NAMES]} ${cards.length > 0 ? `(${cards.length}장)` : '(비어 있음)'}`}
+              : selectedBox === null 
+                ? '상자를 선택하세요' 
+                : `상자 ${selectedBox}: ${BOX_NAMES[selectedBox as keyof typeof BOX_NAMES]} ${cards.length > 0 ? `(${cards.length}장)` : '(비어 있음)'}`}
         </p>
       </div>
 
@@ -251,7 +306,9 @@ export default function BoxManager() {
             ? '검색 결과가 없습니다. 다른 키워드로 검색해보세요.' 
             : selectedBox === 'all' 
               ? '카드가 없습니다. 카드를 추가해보세요!' 
-              : '이 상자에는 카드가 없습니다.'}
+              : selectedBox === null 
+                ? '상자를 선택하세요' 
+                : '이 상자에는 카드가 없습니다.'}
         </div>
       ) : (
         <div className="space-y-4">

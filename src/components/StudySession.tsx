@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { getCardsByBox, updateCardBox } from '../utils/leitner';
 import { FlashCard as FlashCardType, BOX_NAMES } from '../utils/types';
 import FlashCard from './FlashCard';
+import SubjectSelector from './SubjectSelector';
 
 // 상자 번호에 따른 이모지 반환 함수
 const getBoxEmoji = (boxNumber: number): string => {
@@ -18,20 +19,21 @@ export default function StudySession() {
   const [completed, setCompleted] = useState(false);
   const [stats, setStats] = useState({ correct: 0, incorrect: 0 });
   const [selectedBox, setSelectedBox] = useState<number | null>(null);
+  const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
   const [studyStarted, setStudyStarted] = useState(false);
 
-  // 상자 번호가 변경되거나 학습이 재시작될 때 카드 새로 로드
+  // 상자 번호나 과목이 변경되거나 학습이 재시작될 때 카드 새로 로드
   useEffect(() => {
     if (studyStarted && selectedBox !== null) {
-      loadCardsByBox(selectedBox);
+      loadCardsByBox(selectedBox, selectedSubject);
     }
-  }, [selectedBox, studyStarted]);
+  }, [selectedBox, selectedSubject, studyStarted]);
 
-  // 특정 상자의 카드 로드
-  const loadCardsByBox = async (boxNumber: number) => {
+  // 특정 상자의 카드 로드 (과목별 필터링 지원)
+  const loadCardsByBox = async (boxNumber: number, subjectId: number | null) => {
     try {
       setLoading(true);
-      const boxCards = await getCardsByBox(boxNumber);
+      const boxCards = await getCardsByBox(boxNumber, subjectId || undefined);
       setCards(boxCards);
       setCurrentCardIndex(0);
       setCompleted(boxCards.length === 0);
@@ -67,62 +69,63 @@ export default function StudySession() {
   };
 
   const resetStudy = () => {
+    setSelectedBox(null);
     setCards([]);
     setCurrentCardIndex(0);
     setCompleted(false);
     setStats({ correct: 0, incorrect: 0 });
-    setSelectedBox(null);
     setStudyStarted(false);
   };
 
-  // 학습 시작 전 상자 선택 화면
+  const startTraining = (boxNumber: number) => {
+    setSelectedBox(boxNumber);
+    setStudyStarted(true);
+  };
+
+  // 과목 변경 핸들러
+  const handleSubjectChange = (subjectId: number | null) => {
+    setSelectedSubject(subjectId);
+    
+    // 이미 학습이 시작된 경우, 새로운 과목의 카드를 로드
+    if (studyStarted && selectedBox !== null) {
+      loadCardsByBox(selectedBox, subjectId);
+    }
+  };
+
   if (!studyStarted) {
     return (
       <div>
         <h2 className="text-xl md:text-2xl font-bold mb-6 text-center bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] bg-clip-text text-transparent">
-          🏋️‍♂️ 오늘의 두뇌 트레이닝
+          💪 두뇌 훈련하기
         </h2>
         
-        <div className="space-y-6">
-          <p className="text-center text-[var(--neutral-700)] mb-4">
-            어떤 강도로 두뇌를 단련하시겠습니까?
-          </p>
+        <SubjectSelector
+          selectedSubject={selectedSubject}
+          onSubjectChange={handleSubjectChange}
+          label="학습할 과목 선택"
+        />
+        
+        <div className="bg-[var(--neutral-100)] p-6 rounded-lg border border-[var(--neutral-300)] shadow-sm mb-6">
+          <h3 className="text-lg font-medium mb-4">상자를 선택하세요</h3>
           
-          <div className="flex flex-col space-y-3">
+          <div className="space-y-3">
             {[1, 2, 3, 4, 5].map((boxNum) => (
               <button
                 key={boxNum}
-                className={`px-4 py-3 border rounded-lg text-left transition-colors ${
-                  selectedBox === boxNum
-                    ? 'bg-[var(--primary)] bg-opacity-10 border-[var(--primary)] text-[var(--foreground)]'
-                    : 'border-[var(--neutral-300)] hover:bg-[var(--neutral-200)]'
-                }`}
-                onClick={() => setSelectedBox(boxNum)}
+                onClick={() => startTraining(boxNum)}
+                className="w-full py-3 px-4 flex items-center justify-between rounded-lg border border-[var(--neutral-300)] hover:border-[var(--primary)] hover:bg-[var(--neutral-200)] transition-colors shadow-sm"
               >
                 <div className="flex items-center">
                   <span className="text-xl mr-3">{getBoxEmoji(boxNum)}</span>
                   <div>
-                    <span className="font-medium">상자 {boxNum}: {BOX_NAMES[boxNum as keyof typeof BOX_NAMES]}</span>
-                    <p className="text-xs text-[var(--neutral-700)] mt-1">
-                      {boxNum === 1 ? '신규 학습 카드 - 처음 배우는 내용' : 
-                       boxNum === 2 ? '자주 복습해야 하는 카드' : 
-                       boxNum === 3 ? '익숙해진 카드' : 
-                       boxNum === 4 ? '거의 암기된 카드' : 
-                       '완전히 암기된 카드'}
-                    </p>
+                    <div className="font-medium">상자 {boxNum}</div>
+                    <div className="text-sm text-[var(--neutral-700)]">{BOX_NAMES[boxNum as keyof typeof BOX_NAMES]}</div>
                   </div>
                 </div>
+                <span className="text-[var(--neutral-700)]">→</span>
               </button>
             ))}
           </div>
-          
-          <button
-            className="mt-6 w-full py-3 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md"
-            onClick={() => selectedBox && setStudyStarted(true)}
-            disabled={selectedBox === null}
-          >
-            💪 트레이닝 시작
-          </button>
         </div>
       </div>
     );
@@ -176,7 +179,9 @@ export default function StudySession() {
         ) : (
           <div className="p-6 mb-8 bg-[var(--neutral-200)] rounded-lg inline-block">
             <p className="text-lg">
-              상자 {selectedBox}에는 카드가 없습니다.
+              {selectedSubject 
+                ? `선택한 과목의 상자 ${selectedBox}에는 카드가 없습니다.`
+                : `상자 ${selectedBox}에는 카드가 없습니다.`}
             </p>
             <p className="text-sm mt-2 text-[var(--neutral-700)]">
               '카드추가' 탭에서 새로운 카드를 추가해보세요!
@@ -189,7 +194,7 @@ export default function StudySession() {
             onClick={() => {
               if (selectedBox !== null) {
                 // 같은 상자 다시 공부
-                loadCardsByBox(selectedBox);
+                loadCardsByBox(selectedBox, selectedSubject);
               }
             }}
             className="px-4 py-3 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors shadow-md"
@@ -208,50 +213,37 @@ export default function StudySession() {
   }
 
   return (
-    <div className="w-full max-w-xl mx-auto">
-      <div className="mb-6">
-        <h2 className="text-xl font-bold text-center bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] bg-clip-text text-transparent">
-          {getBoxEmoji(selectedBox || 0)} 상자 {selectedBox} 두뇌 트레이닝
-        </h2>
+    <div>
+      <div className="mb-6 flex justify-between items-center">
+        <button
+          onClick={resetStudy}
+          className="px-3 py-2 text-sm border border-[var(--neutral-300)] rounded-lg hover:bg-[var(--neutral-200)] transition-colors"
+        >
+          ← 다시 선택하기
+        </button>
         
-        <div className="flex justify-between items-center mt-2 mb-4">
-          <span className="text-sm text-[var(--neutral-700)]">진행도</span>
-          <span className="text-sm font-medium">{currentCardIndex + 1} / {cards.length}</span>
+        <div className="text-center">
+          <span className="font-medium">
+            {getBoxEmoji(selectedBox || 0)} 상자 {selectedBox}
+          </span>
+          <div className="text-xs mt-1 text-[var(--neutral-700)]">
+            {selectedSubject ? `과목 필터링 적용됨` : `모든 과목`}
+          </div>
         </div>
         
-        <div className="w-full bg-[var(--neutral-200)] h-2 rounded-full overflow-hidden">
-          <div 
-            className="bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] h-full rounded-full transition-all"
-            style={{ width: `${((currentCardIndex + 1) / cards.length) * 100}%` }}
-          ></div>
+        <div className="text-sm text-[var(--neutral-700)]">
+          {currentCardIndex + 1} / {cards.length}
         </div>
       </div>
       
-      {cards.length > 0 && (
-        <div className="mb-6">
-          <FlashCard
-            key={cards[currentCardIndex].id}
-            card={cards[currentCardIndex]}
+      <div className="bg-[var(--neutral-100)] rounded-lg border border-[var(--neutral-300)] p-6 shadow-md">
+        {cards[currentCardIndex] && (
+          <FlashCard 
+            card={cards[currentCardIndex]} 
             onAnswer={handleAnswer}
           />
-        </div>
-      )}
-      
-      <div className="mt-6 p-4 bg-[var(--neutral-200)] rounded-lg text-sm text-[var(--neutral-700)]">
-        <p className="font-medium mb-1">📝 트레이닝 지침</p>
-        <ul className="list-disc pl-5 space-y-1">
-          <li>보이는 문제를 보고 정답을 입력하세요</li>
-          <li>대소문자는 구분하지 않습니다</li>
-          <li>철자와 순서가 정확하면 정답으로 인정됩니다</li>
-        </ul>
+        )}
       </div>
-      
-      <button
-        onClick={resetStudy}
-        className="mt-6 w-full px-4 py-3 bg-[var(--neutral-700)] text-white rounded-lg hover:bg-[var(--neutral-900)] transition-colors"
-      >
-        ⏹️ 트레이닝 중단하기
-      </button>
     </div>
   );
 }

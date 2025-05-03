@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { addCard } from '../utils/leitner';
+import SubjectSelector from './SubjectSelector';
 
 interface AddCardFormProps {
   onCardAdded?: () => void;
@@ -15,6 +16,7 @@ export default function AddCardForm({ onCardAdded }: AddCardFormProps) {
   const [submitMessage, setSubmitMessage] = useState('');
   const [bulkText, setBulkText] = useState('');
   const [isBulkMode, setIsBulkMode] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState<number | null>(1); // 기본값은 1번 과목
 
   const resetForm = () => {
     setFront('');
@@ -37,11 +39,17 @@ export default function AddCardForm({ onCardAdded }: AddCardFormProps) {
       return;
     }
 
+    if (selectedSubject === null) {
+      setSubmitStatus('error');
+      setSubmitMessage('과목을 선택해주세요.');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       setSubmitStatus(null);
 
-      await addCard(front, back);
+      await addCard(front, back, selectedSubject);
       
       setSubmitStatus('success');
       setSubmitMessage('카드가 성공적으로 추가되었습니다!');
@@ -64,6 +72,12 @@ export default function AddCardForm({ onCardAdded }: AddCardFormProps) {
     const lines = bulkText.trim().split('\n');
     const cards = [];
     const errors = [];
+
+    if (selectedSubject === null) {
+      setSubmitStatus('error');
+      setSubmitMessage('과목을 선택해주세요.');
+      return;
+    }
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
@@ -96,7 +110,7 @@ export default function AddCardForm({ onCardAdded }: AddCardFormProps) {
       setSubmitStatus(null);
 
       for (const card of cards) {
-        await addCard(card.front, card.back);
+        await addCard(card.front, card.back, selectedSubject);
       }
       
       setSubmitStatus('success');
@@ -113,6 +127,11 @@ export default function AddCardForm({ onCardAdded }: AddCardFormProps) {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // 과목 변경 핸들러
+  const handleSubjectChange = (subjectId: number | null) => {
+    setSelectedSubject(subjectId);
   };
 
   return (
@@ -145,6 +164,13 @@ export default function AddCardForm({ onCardAdded }: AddCardFormProps) {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        <SubjectSelector
+          selectedSubject={selectedSubject}
+          onSubjectChange={handleSubjectChange}
+          includeAllOption={false}
+          label="카드를 추가할 과목"
+        />
+        
         {!isBulkMode ? (
           <>
             <div className="bg-[var(--neutral-100)] p-6 rounded-lg border border-[var(--neutral-300)] shadow-sm">

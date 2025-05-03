@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { Subject } from './types';
 
 // Supabase 클라이언트 생성
 // 실제 프로젝트에서는 환경 변수에서 값을 가져와야 합니다
@@ -27,12 +28,25 @@ type FlashCardData = {
   last_reviewed: string;
   next_review: string;
   is_admin_card: boolean;
+  subject_id: number;
 }
 
 type InsertData = Partial<FlashCardData>;
 
 class DummySupabase {
   async from(_table: string) {
+    if (_table === 'subjects') {
+      return {
+        select: () => this.selectSubjects(),
+        insert: (data: Partial<Subject>) => this.insertSubject(data),
+        update: (data: Partial<Subject>) => this.updateSubject(data),
+        delete: () => this.delete(),
+        eq: () => this,
+        order: () => this,
+        single: () => this
+      };
+    }
+    
     return {
       select: () => this.select(),
       insert: (data: InsertData) => this.insert(data),
@@ -41,13 +55,21 @@ class DummySupabase {
       eq: () => this,
       lte: () => this,
       order: () => this,
-      single: () => this
+      single: () => this,
+      or: () => this
     };
   }
 
   select() {
     return Promise.resolve({
       data: getSampleData(),
+      error: null
+    });
+  }
+  
+  selectSubjects() {
+    return Promise.resolve({
+      data: getSampleSubjects(),
       error: null
     });
   }
@@ -58,8 +80,22 @@ class DummySupabase {
       error: null
     });
   }
+  
+  insertSubject(data: Partial<Subject>) {
+    return Promise.resolve({
+      data: [{ id: Date.now(), created_at: new Date().toISOString(), ...data }],
+      error: null
+    });
+  }
 
   update(data: InsertData) {
+    return Promise.resolve({
+      data: [{ id: 1, created_at: new Date().toISOString(), ...data }],
+      error: null
+    });
+  }
+  
+  updateSubject(data: Partial<Subject>) {
     return Promise.resolve({
       data: [{ id: 1, created_at: new Date().toISOString(), ...data }],
       error: null
@@ -89,7 +125,8 @@ function getSampleData(): FlashCardData[] {
       box_number: 1,
       last_reviewed: new Date().toISOString(),
       next_review: new Date().toISOString(),
-      is_admin_card: true
+      is_admin_card: true,
+      subject_id: 1
     },
     {
       id: 2,
@@ -99,7 +136,8 @@ function getSampleData(): FlashCardData[] {
       box_number: 1,
       last_reviewed: new Date().toISOString(),
       next_review: new Date().toISOString(),
-      is_admin_card: true
+      is_admin_card: true,
+      subject_id: 1
     },
     {
       id: 3,
@@ -109,7 +147,8 @@ function getSampleData(): FlashCardData[] {
       box_number: 2,
       last_reviewed: new Date().toISOString(),
       next_review: new Date().toISOString(),
-      is_admin_card: true
+      is_admin_card: true,
+      subject_id: 1
     },
     {
       id: 4,
@@ -119,7 +158,8 @@ function getSampleData(): FlashCardData[] {
       box_number: 3,
       last_reviewed: new Date().toISOString(),
       next_review: new Date().toISOString(),
-      is_admin_card: true
+      is_admin_card: true,
+      subject_id: 1
     },
     {
       id: 5,
@@ -129,7 +169,65 @@ function getSampleData(): FlashCardData[] {
       box_number: 4,
       last_reviewed: new Date().toISOString(),
       next_review: new Date().toISOString(),
-      is_admin_card: true
+      is_admin_card: true,
+      subject_id: 1
+    },
+    {
+      id: 6,
+      created_at: new Date().toISOString(),
+      front: 'Algorithm',
+      back: '알고리즘',
+      box_number: 1,
+      last_reviewed: new Date().toISOString(),
+      next_review: new Date().toISOString(),
+      is_admin_card: true,
+      subject_id: 2
+    },
+    {
+      id: 7,
+      created_at: new Date().toISOString(),
+      front: 'Data Structure',
+      back: '자료구조',
+      box_number: 2,
+      last_reviewed: new Date().toISOString(),
+      next_review: new Date().toISOString(),
+      is_admin_card: true,
+      subject_id: 2
+    },
+    {
+      id: 8,
+      created_at: new Date().toISOString(),
+      front: 'Mitochondria',
+      back: '미토콘드리아는 세포의 발전소입니다',
+      box_number: 1,
+      last_reviewed: new Date().toISOString(),
+      next_review: new Date().toISOString(),
+      is_admin_card: true,
+      subject_id: 3
+    }
+  ];
+}
+
+// 더미 과목 데이터
+function getSampleSubjects(): Subject[] {
+  return [
+    {
+      id: 1,
+      created_at: new Date().toISOString(),
+      name: '영어',
+      description: '영어 단어와 문장 학습'
+    },
+    {
+      id: 2,
+      created_at: new Date().toISOString(),
+      name: '컴퓨터 과학',
+      description: '프로그래밍과 컴퓨터 과학 용어'
+    },
+    {
+      id: 3,
+      created_at: new Date().toISOString(),
+      name: '생물학',
+      description: '생물학 개념과 용어'
     }
   ];
 }
