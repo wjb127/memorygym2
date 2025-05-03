@@ -33,79 +33,224 @@ type FlashCardData = {
 
 type InsertData = Partial<FlashCardData>;
 
-class DummySupabase {
-  async from(_table: string) {
-    if (_table === 'subjects') {
+class QueryBuilder {
+  private _table: string;
+  private _filters: Record<string, any> = {};
+  private _sortFields: string[] = [];
+  private _sortDirections: Record<string, boolean> = {};
+  private _isSingle: boolean = false;
+  private _orCondition: string | null = null;
+
+  constructor(table: string) {
+    this._table = table;
+  }
+
+  select(columns: string = '*') {
+    // select 메서드는 이미 QueryBuilder를 반환하므로 여기서 chain을 시작합니다
+    return this;
+  }
+
+  eq(field: string, value: any) {
+    this._filters[field] = value;
+    return this;
+  }
+
+  lte(field: string, value: any) {
+    this._filters[`${field}_lte`] = value;
+    return this;
+  }
+
+  order(field: string, options?: { ascending?: boolean }) {
+    this._sortFields.push(field);
+    if (options) {
+      this._sortDirections[field] = options.ascending !== false;
+    }
+    return this;
+  }
+
+  single() {
+    this._isSingle = true;
+    return this;
+  }
+
+  or(condition: string) {
+    this._orCondition = condition;
+    return this;
+  }
+
+  async then(resolve: any) {
+    // 이 메서드는 Promise를 가장하여 await 구문에서 작동하게 합니다
+    if (this._table === 'subjects') {
+      return resolve(this._getSubjectsResult());
+    } else if (this._table === 'flashcards') {
+      return resolve(this._getFlashcardsResult());
+    } else if (this._table === 'review_intervals') {
+      return resolve(this._getReviewIntervalsResult());
+    }
+    return resolve({ data: [], error: null });
+  }
+
+  // 실제 데이터 반환 로직
+  private _getSubjectsResult() {
+    let data = getSampleSubjects();
+    
+    // 필터 적용
+    Object.entries(this._filters).forEach(([key, value]) => {
+      data = data.filter(item => item[key as keyof Subject] === value);
+    });
+    
+    // 정렬 적용
+    if (this._sortFields.length > 0) {
+      data.sort((a, b) => {
+        for (const field of this._sortFields) {
+          const aValue = a[field as keyof Subject];
+          const bValue = b[field as keyof Subject];
+          // null이나 undefined를 처리
+          if (aValue === undefined && bValue === undefined) continue;
+          if (aValue === undefined) return this._sortDirections[field] ? -1 : 1;
+          if (bValue === undefined) return this._sortDirections[field] ? 1 : -1;
+          if (aValue < bValue) return this._sortDirections[field] ? -1 : 1;
+          if (aValue > bValue) return this._sortDirections[field] ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    
+    // single 모드 적용
+    if (this._isSingle) {
+      return { data: data[0] || null, error: null };
+    }
+    
+    return { data, error: null };
+  }
+
+  private _getFlashcardsResult() {
+    let data = getSampleData();
+    
+    // 필터 적용
+    Object.entries(this._filters).forEach(([key, value]) => {
+      if (key.endsWith('_lte')) {
+        const realKey = key.replace('_lte', '');
+        data = data.filter(item => item[realKey as keyof FlashCardData] <= value);
+      } else {
+        data = data.filter(item => item[key as keyof FlashCardData] === value);
+      }
+    });
+    
+    // OR 조건 적용
+    if (this._orCondition) {
+      try {
+        // 단순한 OR 조건 처리 로직
+        // 예: "front.ilike.%text%,back.ilike.%text%"
+        const orParts = this._orCondition.split(',');
+        data = data.filter(item => {
+          return orParts.some(part => {
+            const [field, op, value] = part.split('.');
+            if (op === 'ilike') {
+              const searchValue = value.replace(/%/g, '');
+              return String(item[field as keyof FlashCardData]).toLowerCase().includes(searchValue.toLowerCase());
+            }
+            return false;
+          });
+        });
+      } catch (e) {
+        console.error('OR 조건 처리 중 오류:', e);
+      }
+    }
+    
+    // 정렬 적용
+    if (this._sortFields.length > 0) {
+      data.sort((a, b) => {
+        for (const field of this._sortFields) {
+          const aValue = a[field as keyof FlashCardData];
+          const bValue = b[field as keyof FlashCardData];
+          // null이나 undefined를 처리
+          if (aValue === undefined && bValue === undefined) continue;
+          if (aValue === undefined) return this._sortDirections[field] ? -1 : 1;
+          if (bValue === undefined) return this._sortDirections[field] ? 1 : -1;
+          if (aValue < bValue) return this._sortDirections[field] ? -1 : 1;
+          if (aValue > bValue) return this._sortDirections[field] ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    
+    // single 모드 적용
+    if (this._isSingle) {
+      return { data: data[0] || null, error: null };
+    }
+    
+    return { data, error: null };
+  }
+
+  private _getReviewIntervalsResult() {
+    const reviewIntervals = [
+      { box_number: 1, interval_days: 1 },
+      { box_number: 2, interval_days: 3 },
+      { box_number: 3, interval_days: 7 },
+      { box_number: 4, interval_days: 14 },
+      { box_number: 5, interval_days: 30 },
+    ];
+    
+    let data = reviewIntervals;
+    
+    // 필터 적용
+    Object.entries(this._filters).forEach(([key, value]) => {
+      data = data.filter(item => item[key as keyof typeof item] === value);
+    });
+    
+    // single 모드 적용
+    if (this._isSingle) {
+      return { data: data[0] || null, error: null };
+    }
+    
+    return { data, error: null };
+  }
+
+  // 삽입/업데이트/삭제 기능
+  async insert(data: InsertData | Partial<Subject>) {
+    if (this._table === 'subjects') {
       return {
-        select: () => this.selectSubjects(),
-        insert: (data: Partial<Subject>) => this.insertSubject(data),
-        update: (data: Partial<Subject>) => this.updateSubject(data),
-        delete: () => this.delete(),
-        eq: () => this,
-        order: () => this,
-        single: () => this
+        data: [{ id: Date.now(), created_at: new Date().toISOString(), ...data }],
+        error: null
       };
+    } else {
+      return {
+        data: [{ id: Date.now(), created_at: new Date().toISOString(), ...data }],
+        error: null
+      };
+    }
+  }
+
+  async update(data: InsertData | Partial<Subject>) {
+    const filteredData = this._table === 'subjects'
+      ? getSampleSubjects().filter(item => this._matchesFilters(item))
+      : getSampleData().filter(item => this._matchesFilters(item));
+    
+    if (filteredData.length === 0) {
+      return { data: null, error: null };
     }
     
     return {
-      select: () => this.select(),
-      insert: (data: InsertData) => this.insert(data),
-      update: (data: InsertData) => this.update(data),
-      delete: () => this.delete(),
-      eq: () => this,
-      lte: () => this,
-      order: () => this,
-      single: () => this,
-      or: () => this
+      data: [{ ...filteredData[0], ...data }],
+      error: null
     };
   }
 
-  select() {
-    return Promise.resolve({
-      data: getSampleData(),
-      error: null
-    });
-  }
-  
-  selectSubjects() {
-    return Promise.resolve({
-      data: getSampleSubjects(),
-      error: null
-    });
+  async delete() {
+    return { error: null };
   }
 
-  insert(data: InsertData) {
-    return Promise.resolve({
-      data: [{ id: Date.now(), created_at: new Date().toISOString(), ...data }],
-      error: null
+  private _matchesFilters(item: any) {
+    return Object.entries(this._filters).every(([key, value]) => {
+      return item[key] === value;
     });
   }
-  
-  insertSubject(data: Partial<Subject>) {
-    return Promise.resolve({
-      data: [{ id: Date.now(), created_at: new Date().toISOString(), ...data }],
-      error: null
-    });
-  }
+}
 
-  update(data: InsertData) {
-    return Promise.resolve({
-      data: [{ id: 1, created_at: new Date().toISOString(), ...data }],
-      error: null
-    });
-  }
-  
-  updateSubject(data: Partial<Subject>) {
-    return Promise.resolve({
-      data: [{ id: 1, created_at: new Date().toISOString(), ...data }],
-      error: null
-    });
-  }
-
-  delete() {
-    return Promise.resolve({
-      error: null
-    });
+class DummySupabase {
+  from(table: string) {
+    return new QueryBuilder(table);
   }
 
   auth = {
@@ -233,5 +378,4 @@ function getSampleSubjects(): Subject[] {
 }
 
 // 더미 Supabase 객체 생성
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const supabaseDummy = new DummySupabase() as any; 
+export const supabaseDummy = new DummySupabase(); 
