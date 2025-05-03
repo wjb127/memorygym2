@@ -11,7 +11,14 @@ async function sendSlackNotification(content: string, email: string | null) {
       return;
     }
     
-    const messageBlocks = [
+    // 이메일 주소 인코딩 (mailto: 링크용)
+    const encodedEmail = email ? encodeURIComponent(email) : '';
+    const emailSubject = encodeURIComponent('메모리짐 피드백 답변');
+    const emailBody = encodeURIComponent(`안녕하세요,\n\n피드백에 대한 답변을 드립니다:\n\n원본 피드백: "${content}"\n\n`);
+    
+    // 슬랙 메시지 블록 구성
+    // 슬랙 Block Kit 형식을 any로 처리하여 타입 오류 방지
+    const messageBlocks: any[] = [
       {
         "type": "header",
         "text": {
@@ -29,13 +36,23 @@ async function sendSlackNotification(content: string, email: string | null) {
       }
     ];
     
-    // 이메일이 있는 경우 추가 정보로 표시
+    // 이메일 정보와 답장 버튼 추가
     if (email) {
       messageBlocks.push({
         "type": "section",
         "text": {
           "type": "mrkdwn",
           "text": `*연락처:* ${email}`
+        },
+        "accessory": {
+          "type": "button",
+          "text": {
+            "type": "plain_text",
+            "text": "이메일로 답장하기",
+            "emoji": true
+          },
+          "url": `mailto:${encodedEmail}?subject=${emailSubject}&body=${emailBody}`,
+          "action_id": "reply_email"
         }
       });
     }
@@ -45,11 +62,15 @@ async function sendSlackNotification(content: string, email: string | null) {
       "type": "context",
       "elements": [
         {
-          "type": "plain_text",
-          "text": `접수 시간: ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`,
-          "emoji": true
+          "type": "mrkdwn",
+          "text": `*접수 시간:* ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`
         }
       ]
+    });
+    
+    // 분리선 추가
+    messageBlocks.push({
+      "type": "divider"
     });
     
     // 슬랙 웹훅 호출
@@ -86,12 +107,29 @@ export async function POST(request: Request) {
       );
     }
     
+    // 이메일 검증
+    if (!email || email.trim() === '') {
+      return NextResponse.json(
+        { error: '이메일 주소는 필수입니다.' }, 
+        { status: 400 }
+      );
+    }
+    
+    // 간단한 이메일 유효성 검사
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { error: '유효한 이메일 주소를 입력해주세요.' },
+        { status: 400 }
+      );
+    }
+    
     // Supabase에 피드백 데이터 저장
     const { data, error } = await supabase
       .from('feedback')
       .insert({
         content,
-        email: email || null,
+        email,
         created_at: new Date().toISOString()
       })
       .select();

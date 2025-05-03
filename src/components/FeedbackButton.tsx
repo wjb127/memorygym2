@@ -34,6 +34,20 @@ export default function FeedbackButton() {
       return;
     }
     
+    if (!email.trim()) {
+      setSubmitStatus('error');
+      setSubmitMessage('이메일 주소를 입력해주세요.');
+      return;
+    }
+    
+    // 간단한 이메일 유효성 검사
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setSubmitStatus('error');
+      setSubmitMessage('유효한 이메일 주소를 입력해주세요.');
+      return;
+    }
+    
     try {
       setIsSubmitting(true);
       setSubmitStatus(null);
@@ -46,7 +60,7 @@ export default function FeedbackButton() {
         },
         body: JSON.stringify({
           content: feedback,
-          email: email || null
+          email: email
         }),
       });
       
@@ -120,7 +134,7 @@ export default function FeedbackButton() {
             
             <div className="mb-4">
               <label htmlFor="email" className="block text-sm font-medium mb-1 text-[var(--neutral-700)]">
-                이메일 (선택사항)
+                이메일 <span className="text-red-500">*</span>
               </label>
               <input
                 type="email"
@@ -128,8 +142,12 @@ export default function FeedbackButton() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3 py-2 border border-[var(--neutral-300)] rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)] focus:border-[var(--primary)]"
-                placeholder="회신이 필요하시면 이메일을 남겨주세요."
+                placeholder="답변 받을 이메일 주소를 입력해주세요."
+                required
               />
+              <p className="mt-1 text-xs text-[var(--neutral-600)]">
+                답변을 받기 위해 이메일 주소가 필요합니다.
+              </p>
             </div>
             
             {submitStatus && (
