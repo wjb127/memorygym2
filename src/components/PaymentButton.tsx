@@ -3,6 +3,12 @@
 import { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
+declare global {
+  interface Window {
+    IMP: any;
+  }
+}
+
 interface PaymentButtonProps {
   productName: string;
   amount: number;
@@ -16,13 +22,20 @@ export default function PaymentButton({ productName, amount, customerName = '사
   // 아임포트 스크립트 로드 확인
   useEffect(() => {
     const checkImpLoaded = setInterval(() => {
-      // @ts-ignore
       if (window.IMP) {
         setIsImpLoaded(true);
         clearInterval(checkImpLoaded);
         console.log('아임포트 SDK 로드 완료');
-        // @ts-ignore
-        window.IMP.init(process.env.NEXT_PUBLIC_IAMPORT_MERCHANT_ID);
+        
+        // 아임포트 초기화 (최신 SDK 방식)
+        const merchantId = process.env.NEXT_PUBLIC_IAMPORT_MERCHANT_ID;
+        console.log('가맹점 ID:', merchantId);
+        
+        if (merchantId) {
+          window.IMP.init(merchantId);
+        } else {
+          console.error('가맹점 ID가 설정되지 않았습니다');
+        }
       }
     }, 500);
 
@@ -43,7 +56,6 @@ export default function PaymentButton({ productName, amount, customerName = '사
     console.log('주문 ID 생성:', merchantUid);
 
     try {
-      // @ts-ignore
       const IMP = window.IMP;
       console.log('가맹점 ID:', process.env.NEXT_PUBLIC_IAMPORT_MERCHANT_ID);
 
