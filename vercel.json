@@ -3,6 +3,7 @@
   "devCommand": "next dev",
   "framework": "nextjs",
   "env": {
-    "NEXT_PUBLIC_SHOW_VERCEL_TOOLBAR": "false"
+    "NEXT_PUBLIC_SHOW_VERCEL_TOOLBAR": "false",
+    "SLACK_WEBHOOK_URL": "${SLACK_WEBHOOK_URL}"
   }
 } 

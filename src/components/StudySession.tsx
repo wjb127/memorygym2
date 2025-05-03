@@ -55,7 +55,7 @@ export default function StudySession() {
         incorrect: prev.incorrect + (isCorrect ? 0 : 1)
       }));
       
-      // 다음 카드로 이동 (타이머 없이 즉시 진행)
+      // 다음 카드 또는 완료로 이동
       if (currentCardIndex < cards.length - 1) {
         setCurrentCardIndex(prevIndex => prevIndex + 1);
       } else {
