@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getCardsByBox, updateCardBox } from '../utils/leitner';
 import { FlashCard as FlashCardType, BOX_NAMES } from '../utils/types';
 import FlashCard from './FlashCard';
@@ -21,6 +21,14 @@ export default function StudySession() {
   const [selectedBox, setSelectedBox] = useState<number | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
   const [studyStarted, setStudyStarted] = useState(false);
+  // 각 상자별 카드 수를 추적하는 상태 추가
+  const [boxCounts, setBoxCounts] = useState<Record<number, number>>({
+    1: 0,
+    2: 0,
+    3: 0,
+    4: 0,
+    5: 0,
+  });
 
   // 상자 번호나 과목이 변경되거나 학습이 재시작될 때 카드 새로 로드
   useEffect(() => {
@@ -28,6 +36,34 @@ export default function StudySession() {
       loadCardsByBox(selectedBox, selectedSubject);
     }
   }, [selectedBox, selectedSubject, studyStarted]);
+
+  // 상자별 카드 수 업데이트 함수
+  const updateBoxCounts = useCallback(async () => {
+    try {
+      const counts: Record<number, number> = {
+        1: 0,
+        2: 0,
+        3: 0,
+        4: 0,
+        5: 0,
+      };
+      
+      // 각 상자의 카드 개수 가져오기
+      for (let box = 1; box <= 5; box++) {
+        const boxCards = await getCardsByBox(box, selectedSubject || undefined);
+        counts[box] = boxCards.length;
+      }
+      
+      setBoxCounts(counts);
+    } catch (error) {
+      console.error('상자별 카드 수 업데이트 오류:', error);
+    }
+  }, [selectedSubject]);
+
+  // 과목이 변경되면 상자별 카드 수 업데이트
+  useEffect(() => {
+    updateBoxCounts();
+  }, [updateBoxCounts]);
 
   // 특정 상자의 카드 로드 (과목별 필터링 지원)
   const loadCardsByBox = async (boxNumber: number, subjectId: number | null) => {
@@ -121,7 +157,12 @@ export default function StudySession() {
                       <div className="text-sm text-[var(--neutral-700)]">{BOX_NAMES[boxNum as keyof typeof BOX_NAMES]}</div>
                     </div>
                   </div>
-                  <span className="text-[var(--neutral-700)]">→</span>
+                  <div className="flex items-center">
+                    <span className="px-2 py-1 bg-[var(--neutral-200)] rounded-full text-sm font-medium text-[var(--neutral-700)]">
+                      {boxCounts[boxNum]} 카드
+                    </span>
+                    <span className="ml-2 text-[var(--neutral-700)]">→</span>
+                  </div>
                 </button>
               ))}
             </div>
