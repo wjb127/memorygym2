@@ -35,9 +35,6 @@ export default function RootLayout({
         <Script
           src="https://cdn.iamport.kr/js/iamport.payment-1.2.0.js"
           strategy="beforeInteractive"
-          onLoad={() => {
-            console.log('아임포트 스크립트 로드 완료');
-          }}
         />
       </head>
       <body
