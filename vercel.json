@@ -1,0 +1,8 @@
+{
+  "buildCommand": "next build",
+  "devCommand": "next dev",
+  "framework": "nextjs",
+  "env": {
+    "NEXT_PUBLIC_SHOW_VERCEL_TOOLBAR": "false"
+  }
+} 
