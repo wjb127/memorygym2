@@ -13,6 +13,7 @@ export default function FlashCard({ card, onAnswer }: FlashCardProps) {
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [answered, setAnswered] = useState(false);
+  const [readyForNext, setReadyForNext] = useState(false);
 
   // 컴포넌트가 마운트될 때와 card가 변경될 때마다 상태 초기화
   useEffect(() => {
@@ -21,6 +22,7 @@ export default function FlashCard({ card, onAnswer }: FlashCardProps) {
     setShowResult(false);
     setIsCorrect(false);
     setAnswered(false);
+    setReadyForNext(false);
     
     // 포커스 설정 (약간의 딜레이 후)
     const timer = setTimeout(() => {
@@ -34,7 +36,13 @@ export default function FlashCard({ card, onAnswer }: FlashCardProps) {
   const checkAnswer = (e: FormEvent) => {
     e.preventDefault();
     
-    if (answered) return;
+    if (answered && !readyForNext) return;
+    
+    if (readyForNext) {
+      // 다음으로 넘어가기 버튼 클릭했을 때
+      onAnswer(card.id, isCorrect);
+      return;
+    }
     
     // 대소문자 구분 없이 정답 확인, 앞뒤 공백 제거
     const correctAnswer = card.front.trim().toLowerCase();
@@ -47,18 +55,44 @@ export default function FlashCard({ card, onAnswer }: FlashCardProps) {
     setShowResult(true);
     setAnswered(true);
     
-    // 결과 처리 - 딜레이 없이 바로 처리
-    onAnswer(card.id, result);
+    // onAnswer는 다음으로 넘어가기 버튼을 클릭하거나 엔터키를 눌렀을 때만 호출됨
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      
+      if (answered && !readyForNext) {
+        // 이미 답을 확인한 상태에서 엔터를 누르면 다음으로 넘어가기
+        setReadyForNext(true);
+        onAnswer(card.id, isCorrect);
+        return;
+      }
+      
       const form = e.currentTarget.form;
       if (form) form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
     }
   };
 
+  // 다음으로 넘어가기 키보드 이벤트
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && answered && !readyForNext) {
+        e.preventDefault();
+        setReadyForNext(true);
+        onAnswer(card.id, isCorrect);
+      }
+    };
+
+    if (answered && !readyForNext) {
+      window.addEventListener('keydown', handleGlobalKeyDown as any);
+    }
+    
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown as any);
+    };
+  }, [answered, readyForNext, card.id, isCorrect, onAnswer]);
+  
   // 상자 번호에 따른 이모지 반환 함수
   const getBoxEmoji = (boxNumber: number): string => {
     const emojis = ['🔄', '🏋️‍♂️', '💪', '🧠', '🏆', '🎯'];
@@ -143,6 +177,20 @@ export default function FlashCard({ card, onAnswer }: FlashCardProps) {
                   </div>
                 )}
               </div>
+            )}
+            
+            {answered && !readyForNext && (
+              <button
+                type="button"
+                onClick={() => {
+                  setReadyForNext(true);
+                  onAnswer(card.id, isCorrect);
+                }}
+                className="w-full py-3 bg-[var(--secondary)] text-white rounded-lg hover:bg-[var(--secondary-hover)] transition-colors shadow-md flex items-center justify-center"
+              >
+                <span>다음으로 넘어가기</span>
+                <span className="ml-2 text-sm bg-white text-[var(--secondary)] px-2 py-1 rounded-md">Enter ⏎</span>
+              </button>
             )}
           </div>
         </form>
