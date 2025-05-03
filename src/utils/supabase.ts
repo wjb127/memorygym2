@@ -208,43 +208,141 @@ class QueryBuilder {
   }
 
   // 삽입/업데이트/삭제 기능
-  async insert(data: InsertData | Partial<Subject>) {
+  insert(data: InsertData | Partial<Subject>) {
     if (this._table === 'subjects') {
-      return {
+      const result = {
         data: [{ id: Date.now(), created_at: new Date().toISOString(), ...data }],
         error: null
       };
+      return this._createChain(result);
     } else {
-      return {
+      const result = {
         data: [{ id: Date.now(), created_at: new Date().toISOString(), ...data }],
         error: null
       };
+      return this._createChain(result);
     }
   }
 
-  async update(data: InsertData | Partial<Subject>) {
-    const filteredData = this._table === 'subjects'
-      ? getSampleSubjects().filter(item => this._matchesFilters(item))
-      : getSampleData().filter(item => this._matchesFilters(item));
+  update(data: InsertData | Partial<Subject>) {
+    // update 메서드는 QueryUpdater를 반환하여 체인 메서드 지원
+    const updater = new QueryUpdater(this._table, data, this._filters);
+    return updater;
+  }
+
+  delete() {
+    // delete 메서드도 QueryUpdater를 반환하여 체인 메서드 지원
+    const deleter = new QueryDeleter(this._table, this._filters);
+    return deleter;
+  }
+
+  // 체인 메서드를 지원하는 결과 객체 생성
+  private _createChain(result: any) {
+    const chainableResult = { ...result };
     
-    if (filteredData.length === 0) {
-      return { data: null, error: null };
-    }
-    
-    return {
-      data: [{ ...filteredData[0], ...data }],
-      error: null
+    // 체인 메서드 추가
+    chainableResult.select = () => {
+      return Promise.resolve(result);
     };
-  }
-
-  async delete() {
-    return { error: null };
+    
+    return chainableResult;
   }
 
   private _matchesFilters(item: any) {
     return Object.entries(this._filters).every(([key, value]) => {
       return item[key] === value;
     });
+  }
+}
+
+// 업데이트 쿼리 체인 지원 클래스
+class QueryUpdater {
+  private _table: string;
+  private _data: any;
+  private _filters: Record<string, any> = {};
+
+  constructor(table: string, data: any, existingFilters: Record<string, any> = {}) {
+    this._table = table;
+    this._data = data;
+    this._filters = { ...existingFilters };
+  }
+
+  eq(field: string, value: any) {
+    this._filters[field] = value;
+    return this;
+  }
+
+  select(columns: string = '*') {
+    // 이제 실제 업데이트 수행 및 결과 반환
+    return this._executeUpdate();
+  }
+
+  async then(resolve: any) {
+    const result = await this._executeUpdate();
+    return resolve(result);
+  }
+
+  private async _executeUpdate() {
+    if (this._table === 'subjects') {
+      const subjects = getSampleSubjects();
+      const filtered = subjects.filter(item => this._matchesFilters(item));
+      
+      if (filtered.length === 0) {
+        return { data: null, error: null };
+      }
+      
+      // 첫 번째 일치하는 항목 업데이트
+      const updatedItem = { ...filtered[0], ...this._data };
+      
+      return { 
+        data: [updatedItem], 
+        error: null 
+      };
+    } else if (this._table === 'flashcards') {
+      const flashcards = getSampleData();
+      const filtered = flashcards.filter(item => this._matchesFilters(item));
+      
+      if (filtered.length === 0) {
+        return { data: null, error: null };
+      }
+      
+      // 첫 번째 일치하는 항목 업데이트
+      const updatedItem = { ...filtered[0], ...this._data };
+      
+      return { 
+        data: [updatedItem], 
+        error: null 
+      };
+    }
+    
+    return { data: null, error: null };
+  }
+
+  private _matchesFilters(item: any) {
+    return Object.entries(this._filters).every(([key, value]) => {
+      return item[key] === value;
+    });
+  }
+}
+
+// 삭제 쿼리 체인 지원 클래스
+class QueryDeleter {
+  private _table: string;
+  private _filters: Record<string, any> = {};
+
+  constructor(table: string, existingFilters: Record<string, any> = {}) {
+    this._table = table;
+    this._filters = { ...existingFilters };
+  }
+
+  eq(field: string, value: any) {
+    this._filters[field] = value;
+    return this;
+  }
+
+  async then(resolve: any) {
+    const result = { error: null };
+    return resolve(result);
   }
 }
 
