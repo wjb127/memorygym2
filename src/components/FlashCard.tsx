@@ -207,7 +207,7 @@ export default function FlashCard({ card, onAnswer }: FlashCardProps) {
               </div>
             )}
             
-            {answered && (
+            {answered && !readyForNext && (
               <button
                 type="button"
                 onClick={() => {
