@@ -31,11 +31,16 @@ export default function PaymentButton({ productName, amount, customerName = '사
       }
 
       // 가맹점 식별코드 초기화
-      IMP.init(process.env.NEXT_PUBLIC_IAMPORT_MERCHANT_ID);
+      const merchantId = process.env.NEXT_PUBLIC_IAMPORT_MERCHANT_ID;
+      console.log('가맹점 식별코드:', merchantId); // 디버깅용 로그
+      IMP.init(merchantId);
 
       // 결제 데이터 구성
+      const pg = 'nice';  // PG사 코드만 설정 (MID 제외)
+      console.log('PG사 설정:', pg); // 디버깅용 로그
+      
       const paymentData = {
-        pg: 'nice.iamport03m', // PG사 (나이스페이먼츠)
+        pg: pg, // PG사 (나이스페이먼츠)
         pay_method: 'card', // 결제 수단
         merchant_uid: merchantUid, // 주문번호
         name: productName, // 주문명
@@ -49,6 +54,8 @@ export default function PaymentButton({ productName, amount, customerName = '사
           user_id: sessionStorage.getItem('user_id') || 'guest',
         },
       };
+      
+      console.log('결제 데이터:', paymentData); // 디버깅용 로그
 
       // 결제 창 호출
       IMP.request_pay(paymentData, async function(response: any) {
