@@ -33,8 +33,11 @@ export default function RootLayout({
         <meta name="vercel-toolbar-disabled" content="true" />
         {/* 아임포트 결제 SDK */}
         <Script
-          src="https://cdn.iamport.kr/v1/iamport.js"
+          src="https://cdn.iamport.kr/js/iamport.payment-1.2.0.js"
           strategy="beforeInteractive"
+          onLoad={() => {
+            console.log('아임포트 스크립트 로드 완료');
+          }}
         />
       </head>
       <body
