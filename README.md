@@ -10,6 +10,7 @@
 - 카드 관리 (추가, 삭제)
 - 상자별 카드 관리
 - 학습 결과 통계
+- 사용자 피드백 기능 (슬랙 알림 포함)
 
 ## 기술 스택
 
@@ -18,6 +19,7 @@
 - Supabase (인증 및 데이터베이스)
 - TypeScript
 - Tailwind CSS
+- Slack API (피드백 알림)
 
 ## 설치 및 실행 방법
 
@@ -43,13 +45,45 @@ npm install
 
 4. Supabase 데이터베이스 스키마 설정
    - Supabase SQL 편집기에서 `src/db/supabase-schema.sql` 내용을 복사하여 실행
+   - 피드백 기능을 위한 테이블 생성:
+   ```sql
+   CREATE TABLE feedback (
+     id SERIAL PRIMARY KEY,
+     content TEXT NOT NULL,
+     email TEXT,
+     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+   );
+   
+   -- 익명 사용자가 삽입만 가능하도록 설정
+   ALTER TABLE feedback ENABLE ROW LEVEL SECURITY;
+   
+   CREATE POLICY "Allow anonymous insert" ON feedback
+     FOR INSERT WITH CHECK (true);
+   
+   -- 관리자만 조회 가능
+   CREATE POLICY "Allow admin to select" ON feedback
+     FOR SELECT USING (auth.role() = 'authenticated');
+   ```
 
-5. 개발 서버 실행
+5. 슬랙 웹훅 설정 (피드백 알림 수신용)
+   - [Slack API 페이지](https://api.slack.com/apps)에 접속
+   - "Create New App" 클릭, "From scratch" 선택
+   - 앱 이름과 워크스페이스 지정
+   - 좌측 메뉴에서 "Incoming Webhooks" 선택
+   - "Activate Incoming Webhooks" 스위치 켜기
+   - "Add New Webhook to Workspace" 클릭
+   - 피드백 알림을 받을 채널 선택
+   - 생성된 웹훅 URL을 `.env.local` 파일에 추가:
+   ```
+   SLACK_WEBHOOK_URL=your-slack-webhook-url
+   ```
+
+6. 개발 서버 실행
 ```bash
 npm run dev
 ```
 
-6. 브라우저에서 `http://localhost:3000` 접속
+7. 브라우저에서 `http://localhost:3000` 접속
 
 ## 라이트너 상자 학습법이란?
 
@@ -66,12 +100,20 @@ npm run dev
    - 5번 상자: 30일마다
 4. 이 방식은 잘 알고 있는 정보는 덜 자주, 어려운 정보는 더 자주 복습하게 합니다.
 
+## 피드백 기능 사용 방법
+
+1. 웹사이트 우측 하단의 채팅 아이콘 버튼을 클릭합니다.
+2. 피드백 내용을 입력하고 이메일(선택사항)을 입력합니다.
+3. "피드백 보내기" 버튼을 클릭합니다.
+4. 제출된 피드백은 Supabase 데이터베이스에 저장되고 지정된 슬랙 채널로 알림이 전송됩니다.
+
 ## 향후 계획
 
 - 사용자 인증 기능 추가
 - 개인별 학습 데이터 저장
 - 학습 통계 및 분석 기능 강화
 - 모바일 앱 지원
+- 관리자 대시보드 개발 (피드백 관리 포함)
 
 ## 라이센스
 
