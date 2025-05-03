@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import PaymentButton from '@/components/PaymentButton';
+import EnvDebug from '@/components/EnvDebug';
 
 export default function PremiumPage() {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
@@ -114,6 +115,10 @@ export default function PremiumPage() {
             <p className="text-sm text-[var(--neutral-700)] mt-4 text-center">
               결제 진행 시 이용약관 및 개인정보 처리방침에 동의하게 됩니다.
             </p>
+            
+            <div className="mt-4 text-center">
+              <EnvDebug />
+            </div>
           </div>
         )}
 
