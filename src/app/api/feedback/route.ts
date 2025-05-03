@@ -36,7 +36,7 @@ async function sendSlackNotification(content: string, email: string | null) {
     
     // 이메일 주소 인코딩 (mailto: 링크용)
     const encodedEmail = email ? encodeURIComponent(email) : '';
-    const emailSubject = encodeURIComponent('메모리짐 피드백 답변');
+    const emailSubject = encodeURIComponent('암기훈련소 피드백 답변');
     const emailBody = encodeURIComponent(`안녕하세요,\n\n피드백에 대한 답변을 드립니다:\n\n원본 피드백: "${content}"\n\n`);
     
     // 슬랙 메시지 블록 구성

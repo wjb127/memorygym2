@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "메모리짐",
+  title: "암기훈련소",
   description: "플래시카드로 효과적으로 암기하는 방법",
   // Vercel 배포 분석 및 피드백 툴바 비활성화
   other: {
