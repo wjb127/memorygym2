@@ -19,7 +19,7 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
 
 // 개발 환경용 더미 데이터 구현 (실제 API 호출 대신 가짜 데이터 반환)
 // Supabase 연결 없이도 UI가 작동하도록 합니다
-type FlashCardData = {
+export type FlashCardData = {
   id: number;
   created_at: string;
   front: string;
@@ -31,9 +31,16 @@ type FlashCardData = {
   subject_id: number;
 }
 
-type InsertData = Partial<FlashCardData>;
+export type InsertData = Partial<FlashCardData>;
 
-class QueryBuilder {
+// 결과 타입 정의
+type QueryResult<T> = {
+  data: T | T[] | null;
+  error: any;
+}
+
+// QueryBuilder 클래스를 PromiseLike 인터페이스로 확장하여 await 키워드와 함께 사용할 수 있게 함
+class QueryBuilder<T = any> implements PromiseLike<QueryResult<T>> {
   private _table: string;
   private _filters: Record<string, any> = {};
   private _sortFields: string[] = [];
@@ -78,16 +85,26 @@ class QueryBuilder {
     return this;
   }
 
-  async then(resolve: any) {
-    // 이 메서드는 Promise를 가장하여 await 구문에서 작동하게 합니다
+  // PromiseLike 인터페이스 구현
+  then<TResult1 = QueryResult<T>, TResult2 = never>(
+    onfulfilled?: ((value: QueryResult<T>) => TResult1 | PromiseLike<TResult1>) | undefined | null,
+    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null
+  ): PromiseLike<TResult1 | TResult2> {
+    // 결과를 Promise로 감싸서 반환
+    return Promise.resolve(this._executeQuery())
+      .then(onfulfilled, onrejected);
+  }
+
+  // 쿼리 실행 및 결과 반환
+  private _executeQuery(): QueryResult<T> {
     if (this._table === 'subjects') {
-      return resolve(this._getSubjectsResult());
+      return this._getSubjectsResult() as unknown as QueryResult<T>;
     } else if (this._table === 'flashcards') {
-      return resolve(this._getFlashcardsResult());
+      return this._getFlashcardsResult() as unknown as QueryResult<T>;
     } else if (this._table === 'review_intervals') {
-      return resolve(this._getReviewIntervalsResult());
+      return this._getReviewIntervalsResult() as unknown as QueryResult<T>;
     }
-    return resolve({ data: [], error: null });
+    return { data: [], error: null };
   }
 
   // 실제 데이터 반환 로직
@@ -247,77 +264,66 @@ class QueryBuilder {
     
     return chainableResult;
   }
-
-  private _matchesFilters(item: any) {
-    return Object.entries(this._filters).every(([key, value]) => {
-      return item[key] === value;
-    });
-  }
 }
 
-// 업데이트 쿼리 체인 지원 클래스
-class QueryUpdater {
+// QueryUpdater 클래스를 PromiseLike 인터페이스로 확장
+class QueryUpdater<T = any> implements PromiseLike<QueryResult<T>> {
   private _table: string;
   private _data: any;
   private _filters: Record<string, any> = {};
-
+  
   constructor(table: string, data: any, existingFilters: Record<string, any> = {}) {
     this._table = table;
     this._data = data;
     this._filters = { ...existingFilters };
   }
-
+  
   eq(field: string, value: any) {
     this._filters[field] = value;
     return this;
   }
-
+  
   select(columns: string = '*') {
-    // 이제 실제 업데이트 수행 및 결과 반환
-    return this._executeUpdate();
+    return this;
   }
-
-  async then(resolve: any) {
-    const result = await this._executeUpdate();
-    return resolve(result);
+  
+  // PromiseLike 인터페이스 구현
+  then<TResult1 = QueryResult<T>, TResult2 = never>(
+    onfulfilled?: ((value: QueryResult<T>) => TResult1 | PromiseLike<TResult1>) | undefined | null,
+    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null
+  ): PromiseLike<TResult1 | TResult2> {
+    return Promise.resolve(this._executeUpdate())
+      .then(onfulfilled, onrejected);
   }
-
-  private async _executeUpdate() {
-    if (this._table === 'subjects') {
-      const subjects = getSampleSubjects();
-      const filtered = subjects.filter(item => this._matchesFilters(item));
+  
+  private async _executeUpdate(): Promise<QueryResult<T>> {
+    try {
+      // 해당 테이블의 데이터 가져오기
+      let data: any[] = [];
       
-      if (filtered.length === 0) {
-        return { data: null, error: null };
+      if (this._table === 'subjects') {
+        data = getSampleSubjects();
+      } else if (this._table === 'flashcards') {
+        data = getSampleData();
       }
       
-      // 첫 번째 일치하는 항목 업데이트
-      const updatedItem = { ...filtered[0], ...this._data };
+      // 필터에 맞는 아이템 찾기
+      const updatedItems = data
+        .filter(item => this._matchesFilters(item))
+        .map(item => {
+          return { ...item, ...this._data };
+        });
       
-      return { 
-        data: [updatedItem], 
-        error: null 
-      };
-    } else if (this._table === 'flashcards') {
-      const flashcards = getSampleData();
-      const filtered = flashcards.filter(item => this._matchesFilters(item));
-      
-      if (filtered.length === 0) {
-        return { data: null, error: null };
+      if (updatedItems.length === 0) {
+        return { data: null, error: new Error('No items found matching filters') };
       }
       
-      // 첫 번째 일치하는 항목 업데이트
-      const updatedItem = { ...filtered[0], ...this._data };
-      
-      return { 
-        data: [updatedItem], 
-        error: null 
-      };
+      return { data: updatedItems, error: null };
+    } catch (error) {
+      return { data: null, error };
     }
-    
-    return { data: null, error: null };
   }
-
+  
   private _matchesFilters(item: any) {
     return Object.entries(this._filters).every(([key, value]) => {
       return item[key] === value;
@@ -325,24 +331,33 @@ class QueryUpdater {
   }
 }
 
-// 삭제 쿼리 체인 지원 클래스
-class QueryDeleter {
+// QueryDeleter 클래스를 PromiseLike 인터페이스로 확장
+class QueryDeleter<T = any> implements PromiseLike<QueryResult<T>> {
   private _table: string;
   private _filters: Record<string, any> = {};
-
+  
   constructor(table: string, existingFilters: Record<string, any> = {}) {
     this._table = table;
     this._filters = { ...existingFilters };
   }
-
+  
   eq(field: string, value: any) {
     this._filters[field] = value;
     return this;
   }
-
-  async then(resolve: any) {
-    const result = { error: null };
-    return resolve(result);
+  
+  // PromiseLike 인터페이스 구현
+  then<TResult1 = QueryResult<T>, TResult2 = never>(
+    onfulfilled?: ((value: QueryResult<T>) => TResult1 | PromiseLike<TResult1>) | undefined | null,
+    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null
+  ): PromiseLike<TResult1 | TResult2> {
+    return Promise.resolve(this._executeDelete())
+      .then(onfulfilled, onrejected);
+  }
+  
+  private async _executeDelete(): Promise<QueryResult<T>> {
+    // 실제 삭제 작업을 수행하지 않고 성공한 것처럼 응답
+    return { data: null, error: null };
   }
 }
 
@@ -350,14 +365,15 @@ class DummySupabase {
   from(table: string) {
     return new QueryBuilder(table);
   }
-
+  
   auth = {
-    signInWithOtp: () => Promise.resolve({ error: null }),
-    getUser: () => Promise.resolve({ data: { user: { id: 'dummy-user-id' } } })
-  };
+    signUp: () => Promise.resolve({ data: null, error: null }),
+    signIn: () => Promise.resolve({ data: null, error: null }),
+    signOut: () => Promise.resolve({ error: null })
+  }
 }
 
-// 더미 데이터 생성 함수
+// 샘플 데이터 생성 함수
 function getSampleData(): FlashCardData[] {
   return [
     {
@@ -476,4 +492,8 @@ function getSampleSubjects(): Subject[] {
 }
 
 // 더미 Supabase 객체 생성
-export const supabaseDummy = new DummySupabase(); 
+/**
+ * 개발 환경용 더미 Supabase 클라이언트
+ * @eslint-disable-next-line @typescript-eslint/no-explicit-any
+ */
+export const supabaseDummy = new DummySupabase() as any; 
