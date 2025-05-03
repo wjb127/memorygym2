@@ -47,13 +47,13 @@ export default function PaymentButton({ productName, amount, customerName = '사
       const IMP = window.IMP;
       console.log('가맹점 ID:', process.env.NEXT_PUBLIC_IAMPORT_MERCHANT_ID);
 
-      // 이니시스 테스트 모드로 변경
-      const pgProvider = 'inicis';
+      // 이니시스 테스트 모드로 변경 (테스트 상점아이디 명시)
+      const pgProvider = 'inicis.INIpayTest';
       console.log('PG사 코드:', pgProvider);
 
       // 결제 데이터 구성
       const paymentData = {
-        pg: pgProvider, // 이니시스 코드
+        pg: pgProvider, // 이니시스 테스트 코드
         pay_method: 'card', // 결제 수단
         merchant_uid: merchantUid, // 주문번호
         name: productName, // 주문명
@@ -62,9 +62,12 @@ export default function PaymentButton({ productName, amount, customerName = '사
         buyer_tel: '010-0000-0000', // 구매자 전화번호 (필수)
         buyer_email: 'buyer@example.com', // 구매자 이메일 (필수)
         m_redirect_url: `${window.location.origin}/payments/complete`, // 모바일 결제 후 리디렉션 URL
+        display: {
+          card_quota: [0], // 일시불만 활성화
+        },
       };
       
-      console.log('결제 요청 데이터:', paymentData);
+      console.log('결제 요청 데이터:', JSON.stringify(paymentData));
 
       // 결제 창 호출
       IMP.request_pay(paymentData, function(response: any) {
