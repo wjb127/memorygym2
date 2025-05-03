@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import StudySession from "../components/StudySession";
 import AddCardForm from "../components/AddCardForm";
 import BoxManager from "../components/BoxManager";
+import SubjectManager from "../components/SubjectManager";
 import TabLayout from "../components/TabLayout";
 import FeedbackButton from "../components/FeedbackButton";
 
@@ -32,6 +33,11 @@ export default function Home() {
       id: 'manage',
       label: <><span className="hidden sm:inline">카드관리</span><span className="sm:hidden">관리</span></>,
       content: <BoxManager />
+    },
+    {
+      id: 'subjects',
+      label: <><span className="hidden sm:inline">과목관리</span><span className="sm:hidden">과목</span></>,
+      content: <SubjectManager />
     }
   ];
 
