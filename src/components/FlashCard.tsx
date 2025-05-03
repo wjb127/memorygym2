@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent, KeyboardEvent, useEffect } from 'react';
+import { useState, FormEvent, KeyboardEvent, useEffect, useRef } from 'react';
 import { FlashCard as FlashCardType, BOX_COLORS } from '../utils/types';
 
 interface FlashCardProps {
@@ -14,6 +14,9 @@ export default function FlashCard({ card, onAnswer }: FlashCardProps) {
   const [isCorrect, setIsCorrect] = useState(false);
   const [answered, setAnswered] = useState(false);
   const [readyForNext, setReadyForNext] = useState(false);
+  // 엔터 키 처리를 위한 디바운스 변수
+  const lastEnterPressTimeRef = useRef<number>(0);
+  const enterCooldownMs = 1000; // 엔터 키 입력 간 최소 간격(ms)
 
   // 컴포넌트가 마운트될 때와 card가 변경될 때마다 상태 초기화
   useEffect(() => {
@@ -23,6 +26,7 @@ export default function FlashCard({ card, onAnswer }: FlashCardProps) {
     setIsCorrect(false);
     setAnswered(false);
     setReadyForNext(false);
+    lastEnterPressTimeRef.current = 0;
     
     // 포커스 설정 (약간의 딜레이 후)
     const timer = setTimeout(() => {
@@ -58,9 +62,27 @@ export default function FlashCard({ card, onAnswer }: FlashCardProps) {
     // onAnswer는 다음으로 넘어가기 버튼을 클릭하거나 엔터키를 눌렀을 때만 호출됨
   };
 
+  // 엔터 키 디바운스 처리 함수
+  const handleEnterKeyWithDebounce = () => {
+    const now = Date.now();
+    if (now - lastEnterPressTimeRef.current < enterCooldownMs) {
+      // 쿨다운 시간이 지나지 않았으면 무시
+      return false;
+    }
+    
+    // 현재 시간 저장
+    lastEnterPressTimeRef.current = now;
+    return true;
+  };
+
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      
+      // 엔터 키 디바운스 처리
+      if (!handleEnterKeyWithDebounce()) {
+        return;
+      }
       
       if (answered && !readyForNext) {
         // 이미 답을 확인한 상태에서 엔터를 누르면 다음으로 넘어가기
@@ -79,6 +101,12 @@ export default function FlashCard({ card, onAnswer }: FlashCardProps) {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Enter' && answered && !readyForNext) {
         e.preventDefault();
+        
+        // 엔터 키 디바운스 처리
+        if (!handleEnterKeyWithDebounce()) {
+          return;
+        }
+        
         setReadyForNext(true);
         onAnswer(card.id, isCorrect);
       }
@@ -179,12 +207,14 @@ export default function FlashCard({ card, onAnswer }: FlashCardProps) {
               </div>
             )}
             
-            {answered && !readyForNext && (
+            {answered && (
               <button
                 type="button"
                 onClick={() => {
-                  setReadyForNext(true);
-                  onAnswer(card.id, isCorrect);
+                  if (handleEnterKeyWithDebounce()) {
+                    setReadyForNext(true);
+                    onAnswer(card.id, isCorrect);
+                  }
                 }}
                 className="w-full py-3 bg-[var(--secondary)] text-white rounded-lg hover:bg-[var(--secondary-hover)] transition-colors shadow-md flex items-center justify-center"
               >
