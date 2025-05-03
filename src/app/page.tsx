@@ -56,6 +56,9 @@ export default function Home() {
       
       <footer className="mt-8 text-center text-sm text-[var(--neutral-700)]">
         <p>💪 암기훈련소 - 매일 훈련하는 두뇌는 더 강해집니다</p>
+        <p className="mt-2">
+          <a href="/premium" className="text-[var(--primary)] hover:underline">프리미엄으로 업그레이드 →</a>
+        </p>
       </footer>
 
       {/* 피드백 버튼 */}
