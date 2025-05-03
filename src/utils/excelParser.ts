@@ -4,13 +4,14 @@ interface ExcelCard {
   front: string;
   back: string;
   subject_id?: number;
+  subject_name?: string;
 }
 
 /**
  * Excel 파일을 파싱하여 카드 데이터로 변환합니다.
  * 지원하는 형식:
  * - 두 개의 열: 첫 번째 열은 front(정답), 두 번째 열은 back(문제)
- * - 세 개의 열: 첫 번째 열은 front(정답), 두 번째 열은 back(문제), 세 번째 열은 subject_id(과목 ID)
+ * - 세 개의 열: 첫 번째 열은 front(정답), 두 번째 열은 back(문제), 세 번째 열은 subject_name(과목 이름)
  * - 첫 번째 행은 헤더로 간주되어 무시됩니다.
  */
 export function parseExcelFile(file: File): Promise<{ cards: ExcelCard[], errors: string[] }> {
@@ -56,13 +57,14 @@ export function parseExcelFile(file: File): Promise<{ cards: ExcelCard[], errors
             back: String(row[1]).trim()
           };
           
-          // 과목 ID가 있으면 추가
+          // 과목 이름이 있으면 추가
           if (row.length >= 3 && row[2]) {
-            const subject_id = parseInt(String(row[2]).trim());
-            if (!isNaN(subject_id)) {
-              card.subject_id = subject_id;
-            } else {
-              errors.push(`${i+1}행: 올바르지 않은 과목 ID 형식입니다.`);
+            card.subject_name = String(row[2]).trim();
+            
+            // 만약 과목 이름이 숫자로만 이루어져 있으면 과목 ID로 간주
+            const possibleId = parseInt(card.subject_name);
+            if (!isNaN(possibleId) && String(possibleId) === card.subject_name) {
+              card.subject_id = possibleId;
             }
           }
           

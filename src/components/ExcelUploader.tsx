@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { parseExcelFile, isValidExcelFile, getErrorMessage } from '../utils/excelParser';
-import { addCard } from '../utils/leitner';
+import { addCard, getAllSubjects } from '../utils/leitner';
 import SubjectSelector from './SubjectSelector';
+import { Subject } from '../utils/types';
 
 interface ExcelUploaderProps {
   onCardsAdded?: () => void;
@@ -17,7 +18,40 @@ export default function ExcelUploader({ onCardsAdded }: ExcelUploaderProps) {
   const [message, setMessage] = useState('');
   const [progress, setProgress] = useState(0);
   const [selectedSubject, setSelectedSubject] = useState<number | null>(1); // 기본값 1
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // 과목 목록 로드
+  useEffect(() => {
+    const loadSubjects = async () => {
+      setIsLoadingSubjects(true);
+      try {
+        const subjectsData = await getAllSubjects();
+        setSubjects(subjectsData);
+      } catch (error) {
+        console.error('과목 불러오기 오류:', error);
+      } finally {
+        setIsLoadingSubjects(false);
+      }
+    };
+    
+    loadSubjects();
+  }, []);
+  
+  // 과목 이름으로 과목 ID 찾기
+  const findSubjectIdByName = (name: string): number | null => {
+    const foundSubject = subjects.find(
+      subject => subject.name.toLowerCase() === name.toLowerCase()
+    );
+    return foundSubject ? foundSubject.id : null;
+  };
+  
+  // 과목 ID로 과목 이름 찾기
+  const findSubjectNameById = (id: number): string => {
+    const foundSubject = subjects.find(subject => subject.id === id);
+    return foundSubject ? foundSubject.name : `과목 ID: ${id}`;
+  };
   
   const resetForm = () => {
     setFile(null);
@@ -82,10 +116,24 @@ export default function ExcelUploader({ onCardsAdded }: ExcelUploaderProps) {
       
       for (let i = 0; i < total; i++) {
         const card = previewData[i];
-        const subject = card.subject_id || selectedSubject;
+        let subjectId = card.subject_id;
+        
+        // subject_id가 없고 subject_name이 있으면 이름으로 ID 찾기
+        if (!subjectId && card.subject_name) {
+          subjectId = findSubjectIdByName(card.subject_name);
+        }
+        
+        // subject_id가 여전히 없으면 기본 선택된 과목 사용
+        subjectId = subjectId || selectedSubject;
+        
+        if (!subjectId) {
+          console.error('과목 ID를 찾을 수 없음:', card);
+          failures++;
+          continue;
+        }
         
         try {
-          await addCard(card.front, card.back, subject);
+          await addCard(card.front, card.back, subjectId);
           success++;
         } catch (error) {
           console.error('카드 추가 오류:', error);
@@ -126,6 +174,16 @@ export default function ExcelUploader({ onCardsAdded }: ExcelUploaderProps) {
     setSelectedSubject(subjectId);
   };
   
+  const getSubjectDisplay = (card: any): string => {
+    if (card.subject_name) {
+      return card.subject_name;
+    }
+    if (card.subject_id) {
+      return findSubjectNameById(card.subject_id);
+    }
+    return findSubjectNameById(selectedSubject || 1);
+  };
+  
   return (
     <div className="bg-[var(--neutral-100)] p-6 rounded-lg border border-[var(--neutral-300)] shadow-sm">
       <h3 className="text-lg font-semibold mb-4">엑셀 파일로 카드 추가</h3>
@@ -150,7 +208,7 @@ export default function ExcelUploader({ onCardsAdded }: ExcelUploaderProps) {
           selectedSubject={selectedSubject}
           onSubjectChange={handleSubjectChange}
           includeAllOption={false}
-          label="카드를 추가할 기본 과목 (엑셀 파일에 과목 ID가 없는 경우 사용됨)"
+          label="카드를 추가할 기본 과목 (엑셀 파일에 과목 이름이 없는 경우 사용됨)"
         />
         
         {status === 'preview' && previewData.length > 0 && (
@@ -163,7 +221,7 @@ export default function ExcelUploader({ onCardsAdded }: ExcelUploaderProps) {
                     <th className="py-2 px-3 text-left text-xs font-medium text-[var(--neutral-700)]">번호</th>
                     <th className="py-2 px-3 text-left text-xs font-medium text-[var(--neutral-700)]">정답 (앞면)</th>
                     <th className="py-2 px-3 text-left text-xs font-medium text-[var(--neutral-700)]">문제 (뒷면)</th>
-                    <th className="py-2 px-3 text-left text-xs font-medium text-[var(--neutral-700)]">과목 ID</th>
+                    <th className="py-2 px-3 text-left text-xs font-medium text-[var(--neutral-700)]">과목</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -172,7 +230,7 @@ export default function ExcelUploader({ onCardsAdded }: ExcelUploaderProps) {
                       <td className="py-2 px-3 text-sm">{index + 1}</td>
                       <td className="py-2 px-3 text-sm">{card.front}</td>
                       <td className="py-2 px-3 text-sm">{card.back}</td>
-                      <td className="py-2 px-3 text-sm">{card.subject_id || selectedSubject}</td>
+                      <td className="py-2 px-3 text-sm">{getSubjectDisplay(card)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -251,7 +309,7 @@ export default function ExcelUploader({ onCardsAdded }: ExcelUploaderProps) {
         <ul className="list-disc list-inside text-sm text-[var(--neutral-700)] space-y-1">
           <li>첫 번째 열: 정답 (front)</li>
           <li>두 번째 열: 문제 (back)</li>
-          <li>세 번째 열: 과목 ID (선택사항, 없으면 위에서 선택한 과목으로 설정)</li>
+          <li>세 번째 열: 과목 이름 (선택사항, 없으면 위에서 선택한 과목으로 설정)</li>
           <li>첫 번째 행은 헤더로 간주되어 무시됩니다</li>
         </ul>
         <a 

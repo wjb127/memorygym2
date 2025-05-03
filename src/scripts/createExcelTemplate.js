@@ -9,12 +9,13 @@ const workbook = xlsx.utils.book_new();
 
 // 샘플 데이터 생성
 const sampleData = [
-  ['정답 (front)', '문제 (back)', '과목 ID (선택사항)'],
-  ['apple', '사과는 영어로?', '1'],
-  ['book', '책은 영어로?', '1'],
-  ['computer', '컴퓨터는 영어로?', '2'],
-  ['sky', '하늘은 영어로?', '2'],
-  ['happy', '행복한은 영어로?', '3'],
+  ['정답 (front)', '문제 (back)', '과목 이름 (선택사항)'],
+  ['apple', '사과는 영어로?', '영어'],
+  ['book', '책은 영어로?', '영어'],
+  ['computer', '컴퓨터는 영어로?', '컴퓨터 과학'],
+  ['sky', '하늘은 영어로?', '영어'],
+  ['happy', '행복한은 영어로?', '영어'],
+  ['mitochondria', '미토콘드리아는 세포의 무엇인가?', '생물학'],
   ['', '', ''],
   ['여기서부터 입력하세요', '두 번째 열에 문제 입력', ''],
 ];
@@ -26,7 +27,7 @@ const worksheet = xlsx.utils.aoa_to_sheet(sampleData);
 const colWidths = [
   { wch: 20 }, // A열
   { wch: 30 }, // B열
-  { wch: 15 }, // C열
+  { wch: 20 }, // C열
 ];
 worksheet['!cols'] = colWidths;
 
