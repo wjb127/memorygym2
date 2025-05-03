@@ -64,7 +64,7 @@ export default function SubjectSelector({
         disabled={loading}
       >
         {includeAllOption && (
-          <option value="">모든 과목</option>
+          <option value="">과목 선택</option>
         )}
         {subjectsToDisplay.map((subject) => (
           <option key={subject.id} value={subject.id}>

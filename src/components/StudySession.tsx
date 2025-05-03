@@ -103,28 +103,38 @@ export default function StudySession() {
           label="학습할 과목 선택"
         />
         
-        <div className="bg-[var(--neutral-100)] p-6 rounded-lg border border-[var(--neutral-300)] shadow-sm mb-6">
-          <h3 className="text-lg font-medium mb-4">상자를 선택하세요</h3>
-          
-          <div className="space-y-3">
-            {[1, 2, 3, 4, 5].map((boxNum) => (
-              <button
-                key={boxNum}
-                onClick={() => startTraining(boxNum)}
-                className="w-full py-3 px-4 flex items-center justify-between rounded-lg border border-[var(--neutral-300)] hover:border-[var(--primary)] hover:bg-[var(--neutral-200)] transition-colors shadow-sm"
-              >
-                <div className="flex items-center">
-                  <span className="text-xl mr-3">{getBoxEmoji(boxNum)}</span>
-                  <div>
-                    <div className="font-medium">상자 {boxNum}</div>
-                    <div className="text-sm text-[var(--neutral-700)]">{BOX_NAMES[boxNum as keyof typeof BOX_NAMES]}</div>
+        {selectedSubject !== null && (
+          <div className="bg-[var(--neutral-100)] p-6 rounded-lg border border-[var(--neutral-300)] shadow-sm mb-6">
+            <h3 className="text-lg font-medium mb-4">상자를 선택하세요</h3>
+            
+            <div className="space-y-3">
+              {[1, 2, 3, 4, 5].map((boxNum) => (
+                <button
+                  key={boxNum}
+                  onClick={() => startTraining(boxNum)}
+                  className="w-full py-3 px-4 flex items-center justify-between rounded-lg border border-[var(--neutral-300)] hover:border-[var(--primary)] hover:bg-[var(--neutral-200)] transition-colors shadow-sm"
+                >
+                  <div className="flex items-center">
+                    <span className="text-xl mr-3">{getBoxEmoji(boxNum)}</span>
+                    <div>
+                      <div className="font-medium">상자 {boxNum}</div>
+                      <div className="text-sm text-[var(--neutral-700)]">{BOX_NAMES[boxNum as keyof typeof BOX_NAMES]}</div>
+                    </div>
                   </div>
-                </div>
-                <span className="text-[var(--neutral-700)]">→</span>
-              </button>
-            ))}
+                  <span className="text-[var(--neutral-700)]">→</span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+        
+        {selectedSubject === null && (
+          <div className="bg-[var(--neutral-100)] p-6 rounded-lg border border-[var(--neutral-300)] shadow-sm my-6 text-center">
+            <p className="text-lg text-[var(--neutral-700)]">
+              학습을 시작하려면 먼저 과목을 선택해주세요.
+            </p>
+          </div>
+        )}
       </div>
     );
   }
@@ -225,7 +235,7 @@ export default function StudySession() {
             {getBoxEmoji(selectedBox || 0)} 상자 {selectedBox}
           </span>
           <div className="text-xs mt-1 text-[var(--neutral-700)]">
-            {selectedSubject ? `과목 필터링 적용됨` : `모든 과목`}
+            {selectedSubject ? `과목 필터링 적용됨` : `과목 선택`}
           </div>
         </div>
         
