@@ -1,6 +1,29 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '../../../utils/supabase';
 
+// 속도 제한을 위한 메모리 저장소
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1분 (밀리초)
+const MAX_REQUESTS_PER_WINDOW = 3; // IP당 최대 요청 수
+
+// IP 요청 추적을 위한 임시 저장소
+// 실제 프로덕션에서는 Redis나 다른 영구적인 저장소를 사용하는 것이 좋음
+interface RateLimitRecord {
+  count: number;
+  resetTime: number;
+}
+
+const ipRequestRecords: Map<string, RateLimitRecord> = new Map();
+
+// 5분마다 오래된 레코드 정리 (메모리 누수 방지)
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, record] of ipRequestRecords.entries()) {
+    if (record.resetTime < now) {
+      ipRequestRecords.delete(ip);
+    }
+  }
+}, 5 * 60 * 1000);
+
 // 슬랙 웹훅으로 메시지 보내기
 async function sendSlackNotification(content: string, email: string | null) {
   try {
@@ -95,9 +118,70 @@ async function sendSlackNotification(content: string, email: string | null) {
   }
 }
 
+// 속도 제한 확인 함수
+function checkRateLimit(ip: string): { allowed: boolean; resetTime?: number } {
+  const now = Date.now();
+  
+  // IP 레코드 가져오기 또는 새로 생성
+  let record = ipRequestRecords.get(ip);
+  
+  if (!record || record.resetTime < now) {
+    // 새 창 시작
+    record = {
+      count: 0,
+      resetTime: now + RATE_LIMIT_WINDOW
+    };
+  }
+  
+  // 제한 확인
+  if (record.count >= MAX_REQUESTS_PER_WINDOW) {
+    return { 
+      allowed: false,
+      resetTime: record.resetTime
+    };
+  }
+  
+  // 요청 횟수 증가
+  record.count++;
+  ipRequestRecords.set(ip, record);
+  
+  return { allowed: true };
+}
+
 export async function POST(request: Request) {
   try {
+    // 클라이언트 IP 가져오기
+    const forwarded = request.headers.get('x-forwarded-for');
+    const ip = forwarded ? forwarded.split(',')[0].trim() : 'localhost';
+    
+    // 속도 제한 확인
+    const rateLimitResult = checkRateLimit(ip);
+    if (!rateLimitResult.allowed) {
+      const resetTime = rateLimitResult.resetTime || 0;
+      const waitSeconds = Math.ceil((resetTime - Date.now()) / 1000);
+      
+      return NextResponse.json(
+        { 
+          error: `너무 많은 피드백을 보냈습니다. ${waitSeconds}초 후에 다시 시도해주세요.` 
+        },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': waitSeconds.toString()
+          }
+        }
+      );
+    }
+    
     const { content, email } = await request.json();
+    
+    // 콘텐츠 길이 제한 (최대 1000자)
+    if (content && content.length > 1000) {
+      return NextResponse.json(
+        { error: '피드백 내용은 최대 1000자까지 입력 가능합니다.' },
+        { status: 400 }
+      );
+    }
     
     // 기본 검증
     if (!content || content.trim() === '') {

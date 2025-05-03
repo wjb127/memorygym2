@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function FeedbackButton() {
   const [isOpen, setIsOpen] = useState(false);
@@ -9,6 +9,14 @@ export default function FeedbackButton() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'success' | 'error' | null>(null);
   const [submitMessage, setSubmitMessage] = useState('');
+  const [charCount, setCharCount] = useState(0);
+  
+  const MAX_CHARS = 1000;
+
+  // 피드백 내용이 변경될 때마다 글자 수 업데이트
+  useEffect(() => {
+    setCharCount(feedback.length);
+  }, [feedback]);
 
   const toggleFeedback = () => {
     setIsOpen(!isOpen);
@@ -23,6 +31,7 @@ export default function FeedbackButton() {
     setEmail('');
     setSubmitStatus(null);
     setSubmitMessage('');
+    setCharCount(0);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -31,6 +40,12 @@ export default function FeedbackButton() {
     if (!feedback.trim()) {
       setSubmitStatus('error');
       setSubmitMessage('피드백 내용을 입력해주세요.');
+      return;
+    }
+    
+    if (feedback.length > MAX_CHARS) {
+      setSubmitStatus('error');
+      setSubmitMessage(`피드백 내용은 최대 ${MAX_CHARS}자까지 허용됩니다.`);
       return;
     }
     
@@ -127,9 +142,21 @@ export default function FeedbackButton() {
                 rows={4}
                 value={feedback}
                 onChange={(e) => setFeedback(e.target.value)}
-                className="w-full px-3 py-2 border border-[var(--neutral-300)] rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)] focus:border-[var(--primary)]"
+                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${
+                  charCount > MAX_CHARS 
+                    ? 'border-red-500 focus:ring-red-500 focus:border-red-500' 
+                    : 'border-[var(--neutral-300)] focus:ring-[var(--primary)] focus:border-[var(--primary)]'
+                }`}
                 placeholder="의견이나 개선사항을 자유롭게 작성해주세요."
+                maxLength={MAX_CHARS + 100} // 너무 긴 입력을 방지하지만, 오류 메시지는 여전히 표시
               />
+              <div className="flex justify-end mt-1">
+                <span className={`text-xs ${
+                  charCount > MAX_CHARS ? 'text-red-500 font-bold' : 'text-[var(--neutral-600)]'
+                }`}>
+                  {charCount}/{MAX_CHARS}자
+                </span>
+              </div>
             </div>
             
             <div className="mb-4">
@@ -165,9 +192,9 @@ export default function FeedbackButton() {
             <div className="flex justify-end">
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || charCount > MAX_CHARS}
                 className={`px-4 py-2 bg-[var(--primary)] text-white rounded-md hover:bg-[var(--primary-hover)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)] transition-colors ${
-                  isSubmitting ? 'opacity-70 cursor-not-allowed' : ''
+                  isSubmitting || charCount > MAX_CHARS ? 'opacity-70 cursor-not-allowed' : ''
                 }`}
               >
                 {isSubmitting ? '제출 중...' : '피드백 보내기'}
