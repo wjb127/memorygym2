@@ -35,7 +35,7 @@ export default function PaymentButton({ productName, amount, customerName = '사
 
       // 결제 데이터 구성
       const paymentData = {
-        pg: 'html5_inicis', // PG사 (이니시스)
+        pg: 'nice.iamport03m', // PG사 (나이스페이먼츠)
         pay_method: 'card', // 결제 수단
         merchant_uid: merchantUid, // 주문번호
         name: productName, // 주문명
