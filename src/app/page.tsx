@@ -5,6 +5,7 @@ import StudySession from "../components/StudySession";
 import AddCardForm from "../components/AddCardForm";
 import BoxManager from "../components/BoxManager";
 import TabLayout from "../components/TabLayout";
+import FeedbackButton from "../components/FeedbackButton";
 
 export default function Home() {
   const router = useRouter();
@@ -50,6 +51,9 @@ export default function Home() {
       <footer className="mt-8 text-center text-sm text-[var(--neutral-700)]">
         <p>💪 메모리짐 - 매일 훈련하는 두뇌는 더 강해집니다</p>
       </footer>
+
+      {/* 피드백 버튼 */}
+      <FeedbackButton />
     </main>
   );
 }
