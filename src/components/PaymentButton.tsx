@@ -60,12 +60,12 @@ export default function PaymentButton({ productName, amount, customerName = '사
       console.log('가맹점 ID:', process.env.NEXT_PUBLIC_IAMPORT_MERCHANT_ID);
 
       // KG이니시스 테스트 모드 설정
-      const pgProvider = 'html5_inicis.INIpayTest';
+      const pgProvider = 'html5_inicis'; // 테스트 모드에서는 MID 생략
       console.log('PG사 코드:', pgProvider);
 
       // 결제 데이터 구성
       const paymentData = {
-        pg: pgProvider, // KG이니시스 테스트 코드
+        pg: pgProvider, // KG이니시스 코드
         pay_method: 'card', // 결제 수단
         merchant_uid: merchantUid, // 주문번호
         name: productName, // 주문명
