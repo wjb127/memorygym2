@@ -44,6 +44,10 @@ export default function PaymentButton({ productName, amount, customerName = '사
         buyer_tel: '', // 구매자 전화번호
         buyer_email: '', // 구매자 이메일
         m_redirect_url: `${window.location.origin}/payments/complete`, // 모바일 결제 후 리디렉션 URL
+        // 서비스별 커스텀 데이터
+        custom_data: {
+          user_id: sessionStorage.getItem('user_id') || 'guest',
+        },
       };
 
       // 결제 창 호출
@@ -63,6 +67,7 @@ export default function PaymentButton({ productName, amount, customerName = '사
                 imp_uid: imp_uid,
                 merchant_uid: merchant_uid,
                 amount: amount,
+                user_id: sessionStorage.getItem('user_id') || 'guest',
               }),
             });
 

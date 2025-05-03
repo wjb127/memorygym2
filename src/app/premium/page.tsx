@@ -16,6 +16,7 @@ export default function PremiumPage() {
         '모든 상자의 무제한 카드 추가',
         '고급 학습 통계 제공',
         '모든 기기 동기화',
+        '<strong>서비스 이용 기간: 결제일로부터 1개월</strong>',
       ],
       popular: false,
     },
@@ -29,6 +30,7 @@ export default function PremiumPage() {
         '모든 기기 동기화',
         '우선 지원',
         '2개월 무료',
+        '<strong>서비스 이용 기간: 결제일로부터 1년</strong>',
       ],
       popular: true,
     },
@@ -74,7 +76,7 @@ export default function PremiumPage() {
                 {plan.features.map((feature, index) => (
                   <li key={index} className="flex items-start">
                     <span className="text-[var(--primary)] mr-2">✓</span>
-                    <span>{feature}</span>
+                    <span dangerouslySetInnerHTML={{ __html: feature }}></span>
                   </li>
                 ))}
               </ul>
