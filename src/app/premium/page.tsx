@@ -12,19 +12,20 @@ export default function PremiumPage() {
     {
       id: 'monthly',
       name: '월간 프리미엄',
-      price: 4900,
+      price: 100,
       features: [
         '모든 상자의 무제한 카드 추가',
         '고급 학습 통계 제공',
         '모든 기기 동기화',
         '<strong>서비스 이용 기간: 결제일로부터 1개월</strong>',
+        '<strong>테스트 결제용 특별가</strong>',
       ],
       popular: false,
     },
     {
       id: 'yearly',
       name: '연간 프리미엄',
-      price: 49000,
+      price: 1000,
       features: [
         '모든 상자의 무제한 카드 추가',
         '고급 학습 통계 제공',
@@ -32,6 +33,7 @@ export default function PremiumPage() {
         '우선 지원',
         '2개월 무료',
         '<strong>서비스 이용 기간: 결제일로부터 1년</strong>',
+        '<strong>테스트 결제용 특별가</strong>',
       ],
       popular: true,
     },
