@@ -12,6 +12,7 @@ interface PaymentButtonProps {
   productName: string;
   amount: number;
   customerName?: string;
+  customerEmail?: string;
 }
 
 interface PaymentStatus {
@@ -26,7 +27,12 @@ declare global {
   }
 }
 
-export default function PaymentButton({ productName, amount, customerName = '고객' }: PaymentButtonProps) {
+export default function PaymentButton({ 
+  productName, 
+  amount, 
+  customerName = '고객',
+  customerEmail = 'customer@example.com' // 기본 이메일 설정
+}: PaymentButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSdkLoaded, setSdkLoaded] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>({
@@ -151,8 +157,7 @@ export default function PaymentButton({ productName, amount, customerName = '고
         payMethod: 'CARD', // 카드 결제
         customer: {
           name: customerName,
-          mobilePhone: '',
-          email: ''
+          email: customerEmail // 항상 유효한 이메일 형식 사용
         },
         redirectUrl: isMobile ? completeUrl : successUrl,
         taxFreeAmount: 0, // 면세 금액
@@ -348,7 +353,7 @@ export default function PaymentButton({ productName, amount, customerName = '고
     } finally {
       setIsLoading(false);
     }
-  }, [productName, amount, customerName, isMobile, router]);
+  }, [productName, amount, customerName, customerEmail, isMobile, router]);
 
   const getButtonText = () => {
     switch (paymentStatus.status) {
