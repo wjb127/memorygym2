@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import { useRouter } from 'next/navigation';
 
 // 향후 npm 설치 필요: npm install @portone/browser-sdk
 // 현재는 CDN으로 로드하는 방식 사용
@@ -31,6 +32,7 @@ export default function PaymentButton({ productName, amount, customerName = '사
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>({
     status: 'IDLE'
   });
+  const router = useRouter();
   
   // 포트원 V2 SDK 로드
   useEffect(() => {
@@ -120,33 +122,49 @@ export default function PaymentButton({ productName, amount, customerName = '사
       } else {
         // 결제 성공 시 서버 검증
         try {
-          const response = await fetch('/api/payment/verify', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              paymentId: payment.paymentId,
-              orderId: paymentId,
-              amount: amount,
-            }),
+          console.log('서버에 결제 검증 요청:', { 
+            paymentId: payment.paymentId,
+            orderId: payment.orderId,
+            amount: payment.amount
           });
           
-          if (response.ok) {
-            const result = await response.json();
-            if (result.success) {
-              setPaymentStatus({ status: 'PAID' });
-              alert('결제가 성공적으로 완료되었습니다.');
-              window.location.href = '/payments/complete';
-            } else {
-              setPaymentStatus({
-                status: 'FAILED',
-                message: result.message || '결제 검증에 실패했습니다.'
-              });
-              alert(`결제 검증 실패: ${result.message}`);
-            }
+          const verifyResponse = await fetch('/api/payment/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              paymentId: payment.paymentId,
+              orderId: payment.orderId,
+              amount: payment.amount,
+            }),
+          });
+  
+          if (!verifyResponse.ok) {
+            const errorText = await verifyResponse.text();
+            console.error('결제 검증 API 오류:', { 
+              status: verifyResponse.status, 
+              statusText: verifyResponse.statusText,
+              errorText
+            });
+            setPaymentStatus({
+              status: 'FAILED',
+              message: `결제 검증 실패: ${verifyResponse.status} ${errorText}`
+            });
+            return;
+          }
+  
+          const verifyResult = await verifyResponse.json();
+          console.log('결제 검증 결과:', verifyResult);
+  
+          if (verifyResult.success) {
+            setPaymentStatus({ status: 'PAID' });
+            alert('결제가 성공적으로 완료되었습니다.');
+            router.push('/premium/success');
           } else {
-            throw new Error('서버 응답 오류');
+            setPaymentStatus({
+              status: 'FAILED',
+              message: `결제 검증 실패: ${verifyResult.message}`
+            });
+            alert(`결제 검증 실패: ${verifyResult.message}`);
           }
         } catch (error) {
           console.error('결제 검증 오류:', error);
