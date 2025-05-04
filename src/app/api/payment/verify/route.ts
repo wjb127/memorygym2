@@ -98,8 +98,24 @@ export async function POST(request: Request) {
       const payment = paymentData.payment || paymentData;
       
       // 3. 결제 정보 검증 - V2 응답 구조 적용
-      // orderId 검증 (V2에서는 payment.order.id 또는 payment.orderId 형태로 제공)
-      const responseOrderId = payment.order?.id || payment.orderId;
+      // 주문번호 검증 (payment.id 또는 pgResponse의 MOID 필드 사용)
+      let responseOrderId = payment.id; // 기본값으로 payment.id 사용
+      
+      // pgResponse에서 MOID 추출 시도
+      if (payment.pgResponse) {
+        try {
+          const pgResponse = typeof payment.pgResponse === 'string' 
+            ? JSON.parse(payment.pgResponse) 
+            : payment.pgResponse;
+            
+          if (pgResponse.MOID) {
+            responseOrderId = pgResponse.MOID;
+          }
+        } catch (e) {
+          console.warn('pgResponse 파싱 실패:', e);
+        }
+      }
+      
       if (responseOrderId !== orderId) {
         console.error('주문 ID 불일치:', { expected: orderId, actual: responseOrderId });
         return NextResponse.json(
@@ -108,8 +124,8 @@ export async function POST(request: Request) {
         );
       }
       
-      // 금액 검증 (V2에서는 payment.amount 또는 payment.totalAmount로 제공)
-      const responseAmount = payment.amount || payment.totalAmount;
+      // 금액 검증 (V2에서는 payment.amount.total 또는 payment.amount.paid 사용)
+      const responseAmount = payment.amount?.total || payment.amount?.paid || 0;
       if (parseInt(responseAmount) !== parseInt(amount)) {
         console.error('결제 금액 불일치:', { expected: amount, actual: responseAmount });
         return NextResponse.json(
