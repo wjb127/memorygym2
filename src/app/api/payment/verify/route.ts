@@ -63,12 +63,39 @@ export async function POST(request: Request) {
         'Content-Type': 'application/json',
       },
     });
+
+    console.log('결제 정보 조회 요청 상태:', {
+      status: paymentResponse.status,
+      ok: paymentResponse.ok,
+      statusText: paymentResponse.statusText,
+      url: paymentResponse.url
+    });
     
     if (!paymentResponse.ok) {
-      const paymentError = await paymentResponse.text();
-      console.error('결제 정보 조회 실패:', paymentError);
+      let paymentError;
+      try {
+        const errorText = await paymentResponse.text();
+        try {
+          // JSON 형식인지 확인
+          paymentError = JSON.parse(errorText);
+          console.error('결제 정보 조회 실패 (JSON):', paymentError);
+        } catch (e) {
+          // 텍스트 형식 응답
+          paymentError = errorText;
+          console.error('결제 정보 조회 실패 (텍스트):', errorText);
+        }
+      } catch (e) {
+        // 응답 처리 실패
+        paymentError = '응답을 읽을 수 없음';
+        console.error('결제 정보 조회 응답 처리 실패:', e);
+      }
+
       return NextResponse.json(
-        { success: false, message: `결제 정보 조회에 실패했습니다. 상태코드: ${paymentResponse.status}, 오류: ${paymentError}` },
+        { 
+          success: false, 
+          message: `결제 정보 조회에 실패했습니다. 상태코드: ${paymentResponse.status}`,
+          error: paymentError
+        },
         { status: 500 }
       );
     }
