@@ -143,11 +143,26 @@ export default function PaymentButton({ productName, amount, customerName = '사
             console.error('결제 검증 API 오류:', { 
               status: verifyResponse.status, 
               statusText: verifyResponse.statusText,
-              errorText
+              errorText: errorText || '응답 내용 없음'
             });
+            
+            let errorMessage = `결제 검증 실패: ${verifyResponse.status}`;
+            try {
+              // 응답이 JSON 형식인지 확인
+              const errorJson = JSON.parse(errorText);
+              if (errorJson && errorJson.message) {
+                errorMessage += ` - ${errorJson.message}`;
+              } else {
+                errorMessage += ` - ${errorText}`;
+              }
+            } catch (e) {
+              // JSON 파싱 실패시 텍스트 그대로 사용
+              errorMessage += errorText ? ` - ${errorText}` : '';
+            }
+            
             setPaymentStatus({
               status: 'FAILED',
-              message: `결제 검증 실패: ${verifyResponse.status} ${errorText}`
+              message: errorMessage
             });
             return;
           }
@@ -167,12 +182,21 @@ export default function PaymentButton({ productName, amount, customerName = '사
             alert(`결제 검증 실패: ${verifyResult.message}`);
           }
         } catch (error) {
-          console.error('결제 검증 오류:', error);
+          console.error('결제 검증 중 오류 발생:', {
+            error: error instanceof Error ? {
+              name: error.name,
+              message: error.message,
+              stack: error.stack
+            } : String(error),
+            type: typeof error
+          });
+          
           setPaymentStatus({
             status: 'FAILED',
-            message: '결제 검증 중 오류가 발생했습니다.'
+            message: error instanceof Error 
+              ? `결제 검증 중 오류: ${error.message}` 
+              : '결제 검증 중 알 수 없는 오류가 발생했습니다.'
           });
-          alert('결제 검증 중 오류가 발생했습니다.');
         }
       }
     } catch (error) {
