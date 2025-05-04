@@ -3,6 +3,10 @@
 import { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
+// 향후 npm 설치 필요: npm install @portone/browser-sdk
+// 현재는 CDN으로 로드하는 방식 사용
+// import PortOne from "@portone/browser-sdk/v2";
+
 interface PaymentButtonProps {
   productName: string;
   amount: number;
@@ -12,6 +16,13 @@ interface PaymentButtonProps {
 interface PaymentStatus {
   status: 'IDLE' | 'PENDING' | 'PAID' | 'FAILED';
   message?: string;
+}
+
+// 전역 객체 타입 선언
+declare global {
+  interface Window {
+    PortOne: any;
+  }
 }
 
 export default function PaymentButton({ productName, amount, customerName = '사용자' }: PaymentButtonProps) {
@@ -43,8 +54,10 @@ export default function PaymentButton({ productName, amount, customerName = '사
   }, []);
 
   // 고유한 ID 생성 함수
-  const generateOrderId = () => {
-    return `order_${uuidv4()}`;
+  const generatePaymentId = () => {
+    return [...crypto.getRandomValues(new Uint32Array(2))]
+      .map((word) => word.toString(16).padStart(8, "0"))
+      .join("");
   };
 
   const handlePayment = async () => {
@@ -56,13 +69,14 @@ export default function PaymentButton({ productName, amount, customerName = '사
     setIsLoading(true);
     setPaymentStatus({ status: 'PENDING' });
     
-    const orderId = generateOrderId();
-    console.log('주문 ID 생성:', orderId);
+    // 고유한 결제 ID 생성
+    const paymentId = generatePaymentId();
+    console.log('결제 ID 생성:', paymentId);
     
     try {
-      // @ts-ignore - 전역 객체 타입 정의가 없을 수 있음
       const PortOne = window.PortOne;
       
+      // 환경변수에서 스토어 ID와 채널 키 가져오기
       const storeId = process.env.NEXT_PUBLIC_PORTONE_STORE_ID;
       const channelKey = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY;
       
@@ -73,21 +87,23 @@ export default function PaymentButton({ productName, amount, customerName = '사
         throw new Error('포트원 설정 정보가 없습니다. 환경변수를 확인해주세요.');
       }
       
-      // 결제 요청
+      // KG이니시스 결제 요청
       const payment = await PortOne.requestPayment({
         storeId: storeId,
         channelKey: channelKey,
-        paymentId: orderId,
+        paymentId: paymentId,
         orderName: productName,
         totalAmount: amount,
         currency: 'KRW',
-        payMethod: 'CARD',
+        payMethod: 'CARD', // 카드 결제
         customer: {
-          name: customerName,
-          phoneNumber: '010-0000-0000', // 실제 서비스에서는 사용자 정보를 활용
-          email: 'buyer@example.com', // 실제 서비스에서는 사용자 정보를 활용
+          fullName: customerName,
+          phoneNumber: '01012341234', // 고객 전화번호
+          email: 'customer@example.com', // 고객 이메일
         },
-        redirectUrl: `${window.location.origin}/payments/complete`,
+        redirectUrl: `${window.location.origin}/payments/complete`, // 모바일에서 결제 후 리디렉션될 URL
+        taxFreeAmount: 0, // 면세 금액
+        variantKey: 'DEFAULT', // 기본 결제창 스타일
       });
       
       console.log('결제 응답:', payment);
@@ -111,7 +127,7 @@ export default function PaymentButton({ productName, amount, customerName = '사
             },
             body: JSON.stringify({
               paymentId: payment.paymentId,
-              orderId: orderId,
+              orderId: paymentId,
               amount: amount,
             }),
           });
@@ -170,10 +186,31 @@ export default function PaymentButton({ productName, amount, customerName = '사
         {getButtonText()}
       </button>
       
+      {/* 결제 실패 시 메시지 표시 */}
       {paymentStatus.status === 'FAILED' && paymentStatus.message && (
         <div className="mt-2 p-2 bg-red-100 text-red-800 rounded text-sm">
           {paymentStatus.message}
         </div>
+      )}
+
+      {/* 결제 성공 시 대화상자 (모바일에서는 redirectUrl로 이동) */}
+      {paymentStatus.status === 'PAID' && (
+        <dialog open>
+          <header className="p-4 bg-green-50">
+            <h1 className="text-xl font-bold text-green-700">결제 성공</h1>
+          </header>
+          <div className="p-4">
+            <p>결제가 성공적으로 완료되었습니다.</p>
+          </div>
+          <div className="p-4 flex justify-end">
+            <button
+              onClick={() => setPaymentStatus({ status: 'IDLE' })}
+              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+            >
+              닫기
+            </button>
+          </div>
+        </dialog>
       )}
     </>
   );
