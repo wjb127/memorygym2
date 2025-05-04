@@ -39,9 +39,9 @@ export async function POST(request: Request) {
     // 테스트 계정 사용시
     const isTest = process.env.NODE_ENV === 'development' || process.env.IS_TEST === 'true';
     
-    // 인증 헤더 형식 수정: Secret <SECRET_KEY> -> Bearer <SECRET_KEY>
+    // 인증 헤더 형식: PortOne <SECRET_KEY>
     const headers = {
-      'Authorization': `Bearer ${secretKey}`,
+      'Authorization': `PortOne ${secretKey}`,
       'Content-Type': 'application/json',
     };
     
