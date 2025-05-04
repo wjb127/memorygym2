@@ -151,11 +151,12 @@ export default function PaymentButton({ productName, amount, customerName = '사
   
           if (!verifyResponse.ok) {
             const errorText = await verifyResponse.text();
-            console.error('결제 검증 API 오류:', { 
-              status: verifyResponse.status, 
-              statusText: verifyResponse.statusText,
-              errorText: errorText || '응답 내용 없음'
-            });
+            
+            // 각 항목 개별적으로 로깅
+            console.error('결제 검증 API 오류');
+            console.error('- 상태 코드:', verifyResponse.status);
+            console.error('- 상태 메시지:', verifyResponse.statusText);
+            console.error('- 응답 내용:', errorText || '응답 내용 없음');
             
             let errorMessage = `결제 검증 실패: ${verifyResponse.status}`;
             try {
@@ -164,7 +165,7 @@ export default function PaymentButton({ productName, amount, customerName = '사
               if (errorJson && errorJson.message) {
                 errorMessage += ` - ${errorJson.message}`;
               } else {
-                errorMessage += ` - ${errorText}`;
+                errorMessage += errorText ? ` - ${errorText}` : '';
               }
             } catch (e) {
               // JSON 파싱 실패시 텍스트 그대로 사용
