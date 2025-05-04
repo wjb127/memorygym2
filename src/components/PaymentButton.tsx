@@ -149,7 +149,7 @@ export default function PaymentButton({ productName, amount, customerName = '사
           // 필수 필드 확인 및 기본값 설정
           const requestPaymentId = payment.paymentId;
           const requestOrderId = payment.orderId || payment.paymentId; // orderId가 없으면 paymentId 사용
-          const requestAmount = payment.amount || payment.totalAmount; // 둘 다 없으면 props에서 받은 amount 사용
+          const requestAmount = payment.amount || payment.totalAmount; // 둘 다 없으면 props의 amount 사용
           
           // 필수 필드 누락 확인
           if (!requestPaymentId) {
