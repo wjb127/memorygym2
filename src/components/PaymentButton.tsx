@@ -3,145 +3,178 @@
 import { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
-declare global {
-  interface Window {
-    IMP: any;
-  }
-}
-
 interface PaymentButtonProps {
   productName: string;
   amount: number;
   customerName?: string;
 }
 
+interface PaymentStatus {
+  status: 'IDLE' | 'PENDING' | 'PAID' | 'FAILED';
+  message?: string;
+}
+
 export default function PaymentButton({ productName, amount, customerName = '사용자' }: PaymentButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [isImpLoaded, setIsImpLoaded] = useState(false);
-
-  // 아임포트 스크립트 로드 확인
+  const [isSdkLoaded, setSdkLoaded] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>({
+    status: 'IDLE'
+  });
+  
+  // 포트원 V2 SDK 로드
   useEffect(() => {
-    const checkImpLoaded = setInterval(() => {
-      if (window.IMP) {
-        setIsImpLoaded(true);
-        clearInterval(checkImpLoaded);
-        console.log('아임포트 SDK 로드 완료');
-        
-        // 아임포트 초기화 (최신 SDK 방식)
-        const merchantId = process.env.NEXT_PUBLIC_IAMPORT_MERCHANT_ID;
-        console.log('가맹점 ID:', merchantId);
-        
-        if (merchantId) {
-          window.IMP.init(merchantId);
-        } else {
-          console.error('가맹점 ID가 설정되지 않았습니다');
-        }
+    const script = document.createElement('script');
+    script.src = 'https://cdn.portone.io/v2/browser-sdk.js';
+    script.async = true;
+    script.onload = () => {
+      console.log('포트원 SDK 로드 완료');
+      setSdkLoaded(true);
+    };
+    script.onerror = () => {
+      console.error('포트원 SDK 로드 실패');
+    };
+    document.head.appendChild(script);
+    
+    return () => {
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
       }
-    }, 500);
-
-    return () => clearInterval(checkImpLoaded);
+    };
   }, []);
 
-  const handlePayment = () => {
-    if (!isImpLoaded) {
+  // 고유한 ID 생성 함수
+  const generateOrderId = () => {
+    return `order_${uuidv4()}`;
+  };
+
+  const handlePayment = async () => {
+    if (!isSdkLoaded) {
       alert('결제 모듈이 아직 로드되지 않았습니다. 잠시 후 다시 시도해주세요.');
       return;
     }
 
-    // 로딩 상태 설정
     setIsLoading(true);
-
-    // 주문번호 생성 (고유한 ID 생성)
-    const merchantUid = `order_${uuidv4()}`;
-    console.log('주문 ID 생성:', merchantUid);
-
+    setPaymentStatus({ status: 'PENDING' });
+    
+    const orderId = generateOrderId();
+    console.log('주문 ID 생성:', orderId);
+    
     try {
-      const IMP = window.IMP;
-      console.log('가맹점 ID:', process.env.NEXT_PUBLIC_IAMPORT_MERCHANT_ID);
-
-      // HTML5 기반 이니시스 결제 모듈로 변경
-      const pgProvider = 'html5_inicis';
-      console.log('PG사 코드:', pgProvider);
-
-      // 결제 데이터 구성
-      const paymentData = {
-        pg: pgProvider, // HTML5 기반 이니시스 코드
-        pay_method: 'card', // 결제 수단
-        merchant_uid: merchantUid, // 주문번호
-        name: productName, // 주문명
-        amount: amount, // 결제금액
-        buyer_name: customerName, // 구매자 이름
-        buyer_tel: '010-0000-0000', // 구매자 전화번호 (필수)
-        buyer_email: 'buyer@example.com', // 구매자 이메일 (필수)
-        m_redirect_url: `${window.location.origin}/payments/complete`, // 모바일 결제 후 리디렉션 URL
-        display: {
-          card_quota: [0], // 일시불만 활성화
-        },
-      };
+      // @ts-ignore - 전역 객체 타입 정의가 없을 수 있음
+      const PortOne = window.PortOne;
       
-      console.log('결제 요청 데이터:', JSON.stringify(paymentData));
-
-      // 결제 창 호출
-      IMP.request_pay(paymentData, function(response: any) {
-        console.log('결제 응답:', response);
-        
-        // 로딩 상태 해제
-        setIsLoading(false);
-        
-        const { success, error_msg, imp_uid, merchant_uid } = response;
-
-        if (success) {
-          // 결제 성공 처리
-          console.log('결제 성공:', imp_uid);
-          
-          // 서버에 결제 검증 요청
-          fetch('/api/payment', {
+      const storeId = process.env.NEXT_PUBLIC_PORTONE_STORE_ID;
+      const channelKey = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY;
+      
+      console.log('상점 ID:', storeId);
+      console.log('채널 키:', channelKey);
+      
+      if (!storeId || !channelKey) {
+        throw new Error('포트원 설정 정보가 없습니다. 환경변수를 확인해주세요.');
+      }
+      
+      // 결제 요청
+      const payment = await PortOne.requestPayment({
+        storeId: storeId,
+        channelKey: channelKey,
+        paymentId: orderId,
+        orderName: productName,
+        totalAmount: amount,
+        currency: 'KRW',
+        payMethod: 'CARD',
+        customer: {
+          name: customerName,
+          phoneNumber: '010-0000-0000', // 실제 서비스에서는 사용자 정보를 활용
+          email: 'buyer@example.com', // 실제 서비스에서는 사용자 정보를 활용
+        },
+        redirectUrl: `${window.location.origin}/payments/complete`,
+      });
+      
+      console.log('결제 응답:', payment);
+      
+      // 결제 결과 처리
+      if (payment.code !== undefined) {
+        // 결제 실패
+        setPaymentStatus({
+          status: 'FAILED',
+          message: payment.message || '결제 처리 중 오류가 발생했습니다.'
+        });
+        console.error('결제 실패:', payment.message);
+        alert(`결제 실패: ${payment.message}`);
+      } else {
+        // 결제 성공 시 서버 검증
+        try {
+          const response = await fetch('/api/payment/verify', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              imp_uid: imp_uid,
-              merchant_uid: merchant_uid,
+              paymentId: payment.paymentId,
+              orderId: orderId,
               amount: amount,
-              user_id: sessionStorage.getItem('user_id') || 'guest',
             }),
-          })
-          .then(res => res.json())
-          .then(data => {
-            if (data.success) {
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+              setPaymentStatus({ status: 'PAID' });
               alert('결제가 성공적으로 완료되었습니다.');
               window.location.href = '/payments/complete';
             } else {
-              alert(`결제 검증 실패: ${data.message}`);
+              setPaymentStatus({
+                status: 'FAILED',
+                message: result.message || '결제 검증에 실패했습니다.'
+              });
+              alert(`결제 검증 실패: ${result.message}`);
             }
-          })
-          .catch(err => {
-            console.error('결제 검증 오류:', err);
-            alert('결제 검증 중 오류가 발생했습니다.');
+          } else {
+            throw new Error('서버 응답 오류');
+          }
+        } catch (error) {
+          console.error('결제 검증 오류:', error);
+          setPaymentStatus({
+            status: 'FAILED',
+            message: '결제 검증 중 오류가 발생했습니다.'
           });
-        } else {
-          // 결제 실패 처리
-          console.error('결제 실패:', error_msg);
-          alert(`결제 실패: ${error_msg}`);
+          alert('결제 검증 중 오류가 발생했습니다.');
         }
-      });
+      }
     } catch (error) {
       console.error('결제 모듈 실행 오류:', error);
+      setPaymentStatus({
+        status: 'FAILED',
+        message: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.'
+      });
       alert('결제 모듈 실행 중 오류가 발생했습니다.');
+    } finally {
       setIsLoading(false);
     }
   };
 
+  // 결제 상태에 따른 버튼 텍스트
+  const getButtonText = () => {
+    if (isLoading) return '결제 처리 중...';
+    if (!isSdkLoaded) return '결제 모듈 로딩 중...';
+    return `${productName} 결제하기 (${amount.toLocaleString()}원)`;
+  };
+
   return (
-    <button
-      onClick={handlePayment}
-      disabled={isLoading || !isImpLoaded}
-      className="w-full py-3 px-4 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md"
-    >
-      {isLoading ? '결제 처리 중...' : 
-       !isImpLoaded ? '결제 모듈 로딩 중...' : 
-       `${productName} 결제하기 (${amount.toLocaleString()}원)`}
-    </button>
+    <>
+      <button
+        onClick={handlePayment}
+        disabled={isLoading || !isSdkLoaded}
+        className="w-full py-3 px-4 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md"
+      >
+        {getButtonText()}
+      </button>
+      
+      {paymentStatus.status === 'FAILED' && paymentStatus.message && (
+        <div className="mt-2 p-2 bg-red-100 text-red-800 rounded text-sm">
+          {paymentStatus.message}
+        </div>
+      )}
+    </>
   );
 } 
