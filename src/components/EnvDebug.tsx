@@ -6,12 +6,12 @@ export default function EnvDebug() {
   const [showDebug, setShowDebug] = useState(false);
 
   const envVars = {
-    NEXT_PUBLIC_IAMPORT_MERCHANT_ID: process.env.NEXT_PUBLIC_IAMPORT_MERCHANT_ID,
-    // 보안을 위해 API 키와 시크릿 키는 전체가 아닌 일부만 표시합니다
-    IAMPORT_API_KEY_PREFIX: process.env.IAMPORT_API_KEY ? 
-      `${process.env.IAMPORT_API_KEY.substring(0, 4)}...` : '설정되지 않음',
-    IAMPORT_API_SECRET_PREFIX: process.env.IAMPORT_API_SECRET ? 
-      `${process.env.IAMPORT_API_SECRET.substring(0, 4)}...` : '설정되지 않음',
+    // PortOne V2 환경변수
+    NEXT_PUBLIC_PORTONE_STORE_ID: process.env.NEXT_PUBLIC_PORTONE_STORE_ID || '설정되지 않음',
+    NEXT_PUBLIC_PORTONE_CHANNEL_KEY: process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY ? 
+      `${process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY.substring(0, 8)}...` : '설정되지 않음',
+    PORTONE_V2_API_SECRET_PREFIX: process.env.PORTONE_V2_API_SECRET ? 
+      `${process.env.PORTONE_V2_API_SECRET.substring(0, 8)}...` : '설정되지 않음',
   };
 
   return (

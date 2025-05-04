@@ -1,66 +1,69 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/utils/supabase';
 
-// 아임포트 엑세스 토큰 발급 함수
-async function getIamportToken() {
-  const response = await fetch('https://api.iamport.kr/users/getToken', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      imp_key: process.env.IAMPORT_API_KEY,
-      imp_secret: process.env.IAMPORT_API_SECRET,
-    }),
-  });
-
-  const { response: { access_token } } = await response.json();
-  return access_token;
-}
-
-// 결제 정보 조회 함수
-async function getPaymentData(impUid: string, accessToken: string) {
-  const response = await fetch(`https://api.iamport.kr/payments/${impUid}`, {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-    },
-  });
-
-  const { response: paymentData } = await response.json();
-  return paymentData;
+// 포트원 V2 API를 통한 결제 정보 조회 함수
+async function getPortOnePaymentData(paymentId: string) {
+  try {
+    const secretKey = process.env.PORTONE_V2_API_SECRET;
+    
+    if (!secretKey) {
+      throw new Error('포트원 V2 API 시크릿 키가 설정되지 않았습니다.');
+    }
+    
+    const url = `https://api.portone.io/payments/${paymentId}`;
+    console.log('PortOne V2 API 호출:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `PortOne ${secretKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`포트원 API 응답 오류: ${errorData.message || response.statusText}`);
+    }
+    
+    const paymentData = await response.json();
+    return paymentData;
+  } catch (error) {
+    console.error('포트원 결제 정보 조회 오류:', error);
+    throw error;
+  }
 }
 
 // 결제 검증 API 라우트
 export async function POST(request: Request) {
   try {
-    const { imp_uid, merchant_uid, amount, user_id } = await request.json();
+    const { paymentId, merchant_uid, amount, user_id } = await request.json();
 
     // 필수 파라미터 검증
-    if (!imp_uid || !merchant_uid) {
+    if (!paymentId) {
       return NextResponse.json({ 
         success: false, 
         message: '필수 파라미터가 누락되었습니다.' 
       }, { status: 400 });
     }
 
-    // 아임포트 토큰 발급
-    const accessToken = await getIamportToken();
-    
-    // 결제 정보 조회
-    const paymentData = await getPaymentData(imp_uid, accessToken);
+    // 포트원 V2 API로 결제 정보 조회
+    const paymentData = await getPortOnePaymentData(paymentId);
     
     // 결제 검증: 결제 금액과 주문 금액이 일치하는지 확인
-    if (paymentData.amount === amount) {
+    if (!amount || paymentData.totalAmount === amount) {
       // 구독 기간 계산
       const now = new Date();
       const startDate = now.toISOString();
       
       // 구독 종료일 계산 (상품명에 따라 월간 또는 연간 구독 설정)
       const endDate = new Date(now);
-      if (paymentData.name.includes('월간') || paymentData.name.includes('Monthly')) {
+      const orderName = paymentData.orderName || '';
+      
+      if (orderName.includes('월간') || orderName.includes('Monthly')) {
         // 월간 구독 (1개월 추가)
         endDate.setMonth(endDate.getMonth() + 1);
-      } else if (paymentData.name.includes('연간') || paymentData.name.includes('Yearly')) {
+      } else if (orderName.includes('연간') || orderName.includes('Yearly')) {
         // 연간 구독 (1년 추가)
         endDate.setFullYear(endDate.getFullYear() + 1);
       } else {
@@ -72,10 +75,10 @@ export async function POST(request: Request) {
       const { error: paymentError } = await supabase
         .from('payments')
         .insert({
-          payment_id: imp_uid,
-          merchant_uid: merchant_uid,
+          payment_id: paymentId,
+          merchant_uid: merchant_uid || paymentId,
           user_id: user_id, // 사용자 ID
-          amount: amount,
+          amount: paymentData.totalAmount,
           status: paymentData.status,
           payment_data: paymentData,
         });
@@ -89,11 +92,11 @@ export async function POST(request: Request) {
         .from('subscriptions')
         .upsert({
           user_id: user_id,
-          plan_type: paymentData.name.includes('월간') ? 'monthly' : 'yearly',
+          plan_type: orderName.includes('월간') ? 'monthly' : 'yearly',
           start_date: startDate,
           end_date: endDate.toISOString(),
           status: 'active',
-          payment_id: imp_uid,
+          payment_id: paymentId,
         });
         
       if (subscriptionError) {
