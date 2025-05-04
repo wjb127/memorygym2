@@ -159,8 +159,8 @@ export default function PaymentButton({
         currency: 'KRW',
         payMethod: 'CARD', // 카드 결제
         customer: {
-          name: customerName || '구매자',
-          email: customerEmail,
+          fullName: customerName || '구매자',
+          email: customerEmail || 'customer@example.com',
           phoneNumber: customerMobile || '01012345678'
         },
         redirectUrl: isMobile ? completeUrl : successUrl,
