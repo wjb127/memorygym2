@@ -120,6 +120,13 @@ export default function PaymentButton({ productName, amount, customerName = '사
       });
       
       console.log('결제 응답:', payment);
+      console.log('결제 응답 구조 확인:', {
+        전체: typeof payment,
+        paymentId: payment.paymentId,
+        orderId: payment.orderId || (payment.order && payment.order.id) || payment.orderName,
+        amount: payment.amount || payment.totalAmount,
+        status: payment.status
+      });
       
       // 결제 결과 처리
       if (payment.code !== undefined) {
@@ -135,17 +142,32 @@ export default function PaymentButton({ productName, amount, customerName = '사
         try {
           console.log('서버에 결제 검증 요청:', { 
             paymentId: payment.paymentId,
-            orderId: payment.orderId,
-            amount: payment.amount
+            orderId: payment.orderId || payment.paymentId,
+            amount: payment.amount || payment.totalAmount
           });
+          
+          // 필수 필드 확인 및 기본값 설정
+          const requestPaymentId = payment.paymentId;
+          const requestOrderId = payment.orderId || payment.paymentId; // orderId가 없으면 paymentId 사용
+          const requestAmount = payment.amount || payment.totalAmount; // 둘 다 없으면 props에서 받은 amount 사용
+          
+          // 필수 필드 누락 확인
+          if (!requestPaymentId) {
+            console.error('paymentId가 없습니다:', payment);
+            setPaymentStatus({
+              status: 'FAILED',
+              message: '결제 검증에 필요한 정보가 누락되었습니다: paymentId'
+            });
+            return;
+          }
           
           const verifyResponse = await fetch('/api/payment/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              paymentId: payment.paymentId,
-              orderId: payment.orderId,
-              amount: payment.amount,
+              paymentId: requestPaymentId,
+              orderId: requestOrderId,
+              amount: requestAmount || amount // 없으면 props에서 받은 값 사용
             }),
           });
   
