@@ -112,6 +112,7 @@ export default function PremiumPage() {
             <PaymentButton
               productName={plans.find((p) => p.id === selectedPlan)?.name || ''}
               amount={plans.find((p) => p.id === selectedPlan)?.price || 0}
+              customerEmail="customer@example.com"
             />
             
             <p className="text-sm text-[var(--neutral-700)] mt-4 text-center">
