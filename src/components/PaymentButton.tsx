@@ -156,8 +156,8 @@ export default function PaymentButton({
         currency: 'KRW',
         payMethod: 'CARD', // 카드 결제
         customer: {
-          name: customerName,
-          email: customerEmail // 항상 유효한 이메일 형식 사용
+          name: customerName || '고객',
+          email: customerEmail
         },
         redirectUrl: isMobile ? completeUrl : successUrl,
         taxFreeAmount: 0, // 면세 금액
@@ -193,6 +193,7 @@ export default function PaymentButton({
       
       // 결제 요청 데이터 로깅
       console.log('결제 요청 데이터:', paymentData);
+      console.log('구매자 정보:', paymentData.customer);
       
       try {
         // KG이니시스 결제 요청
