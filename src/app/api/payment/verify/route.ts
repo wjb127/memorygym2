@@ -19,12 +19,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // V2 API 키와 시크릿 키 확인
-    const apiKey = process.env.PORTONE_API_KEY;
-    const secretKey = process.env.PORTONE_SECRET_KEY;
+    // V2 API 시크릿 키 확인
+    const secretKey = process.env.PORTONE_V2_API_SECRET;
 
-    if (!apiKey || !secretKey) {
-      console.error('PortOne API 키 또는 시크릿 키가 설정되지 않았습니다.');
+    if (!secretKey) {
+      console.error('PortOne V2 API 시크릿 키가 설정되지 않았습니다.');
       return NextResponse.json(
         { success: false, message: 'API 설정이 올바르지 않습니다.' },
         { status: 500 }

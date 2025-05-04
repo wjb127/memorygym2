@@ -40,6 +40,11 @@ function PaymentCompleteContent() {
     const portonePaymentId = searchParams.get('paymentId');
     const payMethod = searchParams.get('payMethod');
     
+    // 추가 파라미터 확인
+    const orderName = searchParams.get('orderName');
+    const amountParam = searchParams.get('amount');
+    const amount = amountParam ? parseInt(amountParam, 10) : null;
+    
     // 결제 실패 처리
     if (success === 'false') {
       setPaymentStatus('fail');
@@ -49,7 +54,7 @@ function PaymentCompleteContent() {
     
     // PortOne V2 API: paymentId가 있으면 이를 사용하여 검증
     if (portonePaymentId) {
-      verifyPortOneV2Payment(portonePaymentId);
+      verifyPortOneV2Payment(portonePaymentId, amount);
       return;
     }
     
@@ -61,13 +66,13 @@ function PaymentCompleteContent() {
     }
     
     // 결제 검증 요청
-    verifyPayment(impUid, merchantUid);
+    verifyPayment(impUid, merchantUid, amount);
   }, [searchParams]);
 
   // PortOne V2 API 결제 검증
-  const verifyPortOneV2Payment = async (paymentId: string) => {
+  const verifyPortOneV2Payment = async (paymentId: string, amount: number | null) => {
     try {
-      console.log('PortOne V2 결제 검증 시작:', paymentId);
+      console.log('PortOne V2 결제 검증 시작:', paymentId, amount ? `금액: ${amount}원` : '금액 정보 없음');
       
       const response = await fetch('/api/payment/verify', {
         method: 'POST',
@@ -77,7 +82,8 @@ function PaymentCompleteContent() {
         body: JSON.stringify({
           paymentId: paymentId,
           orderId: paymentId,
-          amount: 1000, // 고정 금액 (실제 운영시 실제 금액으로 변경 필요)
+          // 금액이 URL에 있으면 사용, 없으면 서버에서 검증 (서버 코드가 금액 검증을 처리)
+          ...(amount ? { amount } : {})
         }),
       });
       
@@ -102,9 +108,9 @@ function PaymentCompleteContent() {
   };
 
   // 기존 결제 검증 (V1 호환성 유지)
-  const verifyPayment = async (impUid: string | null, merchantUid: string | null) => {
+  const verifyPayment = async (impUid: string | null, merchantUid: string | null, amount: number | null) => {
     try {
-      console.log('결제 검증 요청:', { impUid, merchantUid });
+      console.log('결제 검증 요청:', { impUid, merchantUid, amount });
       
       const response = await fetch('/api/payment/verify', {
         method: 'POST',
@@ -114,7 +120,8 @@ function PaymentCompleteContent() {
         body: JSON.stringify({
           paymentId: merchantUid,
           orderId: merchantUid,
-          imp_uid: impUid
+          imp_uid: impUid,
+          ...(amount ? { amount } : {})
         }),
       });
       
@@ -162,6 +169,7 @@ function PaymentCompleteContent() {
             <div className="mt-4 text-xs text-gray-500">
               <p>주문번호: {paymentData.orderId}</p>
               <p>결제상태: {paymentData.status}</p>
+              {paymentData.amount && <p>결제금액: {paymentData.amount.toLocaleString()}원</p>}
             </div>
           )}
         </div>
