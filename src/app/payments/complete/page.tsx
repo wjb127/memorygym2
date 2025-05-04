@@ -19,13 +19,26 @@ function PaymentCompleteContent() {
   const router = useRouter();
   const [paymentStatus, setPaymentStatus] = useState<'success' | 'fail' | 'processing'>('processing');
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [paymentData, setPaymentData] = useState<any>(null);
 
   useEffect(() => {
+    console.log('결제 완료 페이지 - URL 파라미터:', Object.fromEntries(searchParams.entries()));
+    
+    // 신한 솔페이 인앱 브라우저 감지 및 처리
+    const isShinhanApp = /ShinhanPayment|ShinhanSolPay/i.test(navigator.userAgent);
+    if (isShinhanApp) {
+      console.log('신한 솔페이 인앱 브라우저에서 접속함');
+    }
+    
     // URL 파라미터에서 결제 정보 가져오기
     const impUid = searchParams.get('imp_uid');
-    const merchantUid = searchParams.get('merchant_uid');
+    const merchantUid = searchParams.get('merchant_uid') || searchParams.get('paymentId');
     const success = searchParams.get('success');
     const errorMsg = searchParams.get('error_msg');
+    
+    // PortOne V2 API에서 사용하는 파라미터 확인
+    const portonePaymentId = searchParams.get('paymentId');
+    const payMethod = searchParams.get('payMethod');
     
     // 결제 실패 처리
     if (success === 'false') {
@@ -34,44 +47,94 @@ function PaymentCompleteContent() {
       return;
     }
     
+    // PortOne V2 API: paymentId가 있으면 이를 사용하여 검증
+    if (portonePaymentId) {
+      verifyPortOneV2Payment(portonePaymentId);
+      return;
+    }
+    
     // 필수 파라미터 확인
-    if (!impUid || !merchantUid) {
+    if (!impUid && !merchantUid) {
       setPaymentStatus('fail');
       setErrorMessage('결제 정보가 올바르지 않습니다.');
       return;
     }
     
     // 결제 검증 요청
-    const verifyPayment = async () => {
-      try {
-        const response = await fetch('/api/payment', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            imp_uid: impUid,
-            merchant_uid: merchantUid,
-          }),
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-          setPaymentStatus('success');
-        } else {
-          setPaymentStatus('fail');
-          setErrorMessage(result.message || '결제 검증에 실패했습니다.');
-        }
-      } catch (error) {
-        console.error('결제 검증 오류:', error);
-        setPaymentStatus('fail');
-        setErrorMessage('결제 검증 중 오류가 발생했습니다.');
-      }
-    };
-    
-    verifyPayment();
+    verifyPayment(impUid, merchantUid);
   }, [searchParams]);
+
+  // PortOne V2 API 결제 검증
+  const verifyPortOneV2Payment = async (paymentId: string) => {
+    try {
+      console.log('PortOne V2 결제 검증 시작:', paymentId);
+      
+      const response = await fetch('/api/payment/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          paymentId: paymentId,
+          orderId: paymentId,
+          amount: 1000, // 고정 금액 (실제 운영시 실제 금액으로 변경 필요)
+        }),
+      });
+      
+      console.log('검증 응답 상태:', response.status);
+      
+      const result = await response.json();
+      console.log('검증 결과:', result);
+      
+      setPaymentData(result.data || null);
+      
+      if (result.success) {
+        setPaymentStatus('success');
+      } else {
+        setPaymentStatus('fail');
+        setErrorMessage(result.message || '결제 검증에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('결제 검증 오류:', error);
+      setPaymentStatus('fail');
+      setErrorMessage('결제 검증 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 기존 결제 검증 (V1 호환성 유지)
+  const verifyPayment = async (impUid: string | null, merchantUid: string | null) => {
+    try {
+      console.log('결제 검증 요청:', { impUid, merchantUid });
+      
+      const response = await fetch('/api/payment/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          paymentId: merchantUid,
+          orderId: merchantUid,
+          imp_uid: impUid
+        }),
+      });
+      
+      const result = await response.json();
+      console.log('결제 검증 결과:', result);
+      
+      setPaymentData(result.data || null);
+      
+      if (result.success) {
+        setPaymentStatus('success');
+      } else {
+        setPaymentStatus('fail');
+        setErrorMessage(result.message || '결제 검증에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('결제 검증 오류:', error);
+      setPaymentStatus('fail');
+      setErrorMessage('결제 검증 중 오류가 발생했습니다.');
+    }
+  };
 
   return (
     <div>
@@ -95,6 +158,12 @@ function PaymentCompleteContent() {
           <p className="text-[var(--neutral-700)]">
             결제가 성공적으로 완료되었습니다. 프리미엄 기능을 즉시 이용하실 수 있습니다.
           </p>
+          {paymentData && (
+            <div className="mt-4 text-xs text-gray-500">
+              <p>주문번호: {paymentData.orderId}</p>
+              <p>결제상태: {paymentData.status}</p>
+            </div>
+          )}
         </div>
       )}
       

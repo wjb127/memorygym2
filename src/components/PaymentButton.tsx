@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useRouter } from 'next/navigation';
 
@@ -26,7 +26,7 @@ declare global {
   }
 }
 
-export default function PaymentButton({ productName, amount, customerName = '사용자' }: PaymentButtonProps) {
+export default function PaymentButton({ productName, amount, customerName = '고객' }: PaymentButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSdkLoaded, setSdkLoaded] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>({
@@ -34,8 +34,24 @@ export default function PaymentButton({ productName, amount, customerName = '사
   });
   const router = useRouter();
   
-  // 포트원 V2 SDK 로드
+  // 모바일 환경 감지
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // 포트원 V2 SDK 로드 및 환경 감지
   useEffect(() => {
+    const checkMobile = () => {
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS/i.test(navigator.userAgent);
+    };
+    
+    setIsMobile(checkMobile());
+    
+    // 솔페이 감지
+    const isShinhanApp = /ShinhanPayment|ShinhanSolPay/i.test(navigator.userAgent);
+    if (isShinhanApp) {
+      console.log('신한 솔페이 인앱 브라우저 감지됨');
+    }
+    
+    // 포트원 SDK 로드
     const script = document.createElement('script');
     script.src = 'https://cdn.portone.io/v2/browser-sdk.js';
     script.async = true;
@@ -62,7 +78,8 @@ export default function PaymentButton({ productName, amount, customerName = '사
       .join("");
   };
 
-  const handlePayment = async () => {
+  // 결제 처리 함수
+  const handlePayment = useCallback(async () => {
     if (!isSdkLoaded) {
       alert('결제 모듈이 아직 로드되지 않았습니다. 잠시 후 다시 시도해주세요.');
       return;
@@ -89,19 +106,15 @@ export default function PaymentButton({ productName, amount, customerName = '사
         throw new Error('포트원 설정 정보가 없습니다. 환경변수를 확인해주세요.');
       }
       
-      // 결제 요청 데이터 로깅
-      console.log('결제 요청 데이터:', {
-        storeId,
-        channelKey,
-        paymentId,
-        orderName: productName,
-        totalAmount: amount,
-        currency: 'KRW',
-        payMethod: 'CARD',
-      });
+      // 명시적 콜백 URL 설정 (모바일 환경에서 중요)
+      const completeUrl = `${window.location.origin}/payments/complete`;
+      const successUrl = `${window.location.origin}/premium/success`;
       
-      // KG이니시스 결제 요청
-      const payment = await PortOne.requestPayment({
+      // 모바일 환경 정보를 결제 요청에 추가
+      console.log(`환경에 따른 리디렉션 URL: ${isMobile ? completeUrl : successUrl}`);
+      
+      // 결제 요청 데이터 준비
+      const paymentData: any = {
         storeId: storeId,
         channelKey: channelKey,
         paymentId: paymentId,
@@ -110,14 +123,54 @@ export default function PaymentButton({ productName, amount, customerName = '사
         currency: 'KRW',
         payMethod: 'CARD', // 카드 결제
         customer: {
-          fullName: customerName,
-          phoneNumber: '01012341234', // 고객 전화번호
-          email: 'customer@example.com', // 고객 이메일
+          name: customerName,
+          mobilePhone: '',
+          email: ''
         },
-        redirectUrl: `${window.location.origin}/premium/success`, // 모바일에서 결제 후 리디렉션될 URL
+        redirectUrl: isMobile ? completeUrl : successUrl,
         taxFreeAmount: 0, // 면세 금액
         variantKey: 'DEFAULT', // 기본 결제창 스타일
-      });
+        
+        // 신한 솔페이 지원을 위한 추가 설정
+        appScheme: isMobile ? 'memorygym://' : undefined,
+        display: {
+          card: {
+            installment: {
+              discount: {
+                maximumInstallmentPlan: 12
+              }
+            }
+          }
+        },
+        
+        bypass: {
+          // 신한카드 솔페이를 위한 설정
+          shinhan_card: {
+            use_direct_signal: 'Y', // 3DS 다이렉트 시그널 사용
+            popup_mode: isMobile ? 'M' : 'N' // 모바일 환경에서는 M(모바일) 모드 사용
+          }
+        }
+      };
+      
+      // 모바일 환경에서 추가 설정
+      if (isMobile) {
+        paymentData.redirectUrl = completeUrl;
+        paymentData.m_redirect_url = completeUrl; // 구 v1 호환성
+        paymentData.display = { card: { cardShowDesc: false } }; // 카드 선택 화면 간소화
+      }
+      
+      // 결제 요청 데이터 로깅
+      console.log('결제 요청 데이터:', paymentData);
+      
+      // KG이니시스 결제 요청
+      const payment = await PortOne.requestPayment(paymentData);
+      
+      // 모바일 환경에서는 requestPayment 이후 리디렉션 처리
+      if (isMobile) {
+        console.log('모바일 환경에서 리디렉션 처리 대기 중...');
+        // 모바일에서는 리디렉션되므로 여기 이후 코드는 실행되지 않음
+        return;
+      }
       
       console.log('결제 응답:', payment);
       console.log('결제 응답 구조 확인:', {
@@ -149,7 +202,7 @@ export default function PaymentButton({ productName, amount, customerName = '사
           // 필수 필드 확인 및 기본값 설정
           const requestPaymentId = payment.paymentId;
           const requestOrderId = payment.orderId || payment.paymentId; // orderId가 없으면 paymentId 사용
-          const requestAmount = payment.amount || payment.totalAmount; // 둘 다 없으면 props의 amount 사용
+          const requestAmount = payment.amount?.total || payment.amount?.paid || payment.amount || payment.totalAmount; // 여러 필드 체크
           
           // 필수 필드 누락 확인
           if (!requestPaymentId) {
@@ -249,57 +302,63 @@ export default function PaymentButton({ productName, amount, customerName = '사
       
       setPaymentStatus({
         status: 'FAILED',
-        message: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.'
+        message: error instanceof Error 
+          ? `결제 요청 중 오류: ${error.message}` 
+          : '결제 중 알 수 없는 오류가 발생했습니다.'
       });
-      alert('결제 모듈 실행 중 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [productName, amount, customerName, isMobile, paymentStatus.message, router]);
 
-  // 결제 상태에 따른 버튼 텍스트
   const getButtonText = () => {
-    if (isLoading) return '결제 처리 중...';
-    if (!isSdkLoaded) return '결제 모듈 로딩 중...';
-    return `${productName} 결제하기 (${amount.toLocaleString()}원)`;
+    switch (paymentStatus.status) {
+      case 'PENDING':
+        return '결제 처리 중...';
+      case 'PAID':
+        return '결제 완료';
+      case 'FAILED':
+        return '다시 시도하기';
+      default:
+        return `${amount.toLocaleString()}원 결제하기`;
+    }
   };
 
   return (
-    <>
-      <button
-        onClick={handlePayment}
-        disabled={isLoading || !isSdkLoaded}
-        className="w-full py-3 px-4 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md"
-      >
-        {getButtonText()}
-      </button>
-      
-      {/* 결제 실패 시 메시지 표시 */}
-      {paymentStatus.status === 'FAILED' && paymentStatus.message && (
-        <div className="mt-2 p-2 bg-red-100 text-red-800 rounded text-sm">
-          {paymentStatus.message}
+    <div className="mt-10">
+      {paymentStatus.status === 'FAILED' && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+          <p className="text-red-700 text-sm">{paymentStatus.message}</p>
         </div>
       )}
-
-      {/* 결제 성공 시 대화상자 (모바일에서는 redirectUrl로 이동) */}
-      {paymentStatus.status === 'PAID' && (
-        <dialog open>
-          <header className="p-4 bg-green-50">
-            <h1 className="text-xl font-bold text-green-700">결제 성공</h1>
-          </header>
-          <div className="p-4">
-            <p>결제가 성공적으로 완료되었습니다.</p>
-          </div>
-          <div className="p-4 flex justify-end">
-            <button
-              onClick={() => setPaymentStatus({ status: 'IDLE' })}
-              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-            >
-              닫기
-            </button>
-          </div>
-        </dialog>
+      
+      <button
+        onClick={handlePayment}
+        disabled={isLoading || paymentStatus.status === 'PAID'}
+        className={`w-full py-3 rounded-lg transition-colors text-white ${
+          isLoading || paymentStatus.status === 'PAID'
+            ? 'bg-[var(--primary-disabled)] cursor-not-allowed'
+            : 'bg-[var(--primary)] hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)]'
+        }`}
+      >
+        {isLoading ? (
+          <span className="flex items-center justify-center">
+            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            로딩 중...
+          </span>
+        ) : (
+          getButtonText()
+        )}
+      </button>
+      
+      {isMobile && (
+        <p className="mt-2 text-xs text-gray-500 text-center">
+          모바일 환경에서는 결제 후 자동으로 결과 페이지로 이동합니다.
+        </p>
       )}
-    </>
+    </div>
   );
 } 
