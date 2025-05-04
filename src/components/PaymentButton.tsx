@@ -160,7 +160,7 @@ export default function PaymentButton({
         customer: {
           name: customerName || '고객',
           email: customerEmail,
-          mobilePhone: customerMobile || '01012345678'
+          phoneNumber: customerMobile || '01012345678'
         },
         redirectUrl: isMobile ? completeUrl : successUrl,
         taxFreeAmount: 0, // 면세 금액
