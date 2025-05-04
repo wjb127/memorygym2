@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import PaymentButton from '@/components/PaymentButton';
-import EnvDebug from '@/components/EnvDebug';
 
 export default function PremiumPage() {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
@@ -122,7 +121,7 @@ export default function PremiumPage() {
             </p>
             
             <div className="mt-4 text-center">
-              <EnvDebug />
+              {/* EnvDebug 컴포넌트 제거 */}
             </div>
           </div>
         )}
