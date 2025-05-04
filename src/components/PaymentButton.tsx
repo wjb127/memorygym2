@@ -194,14 +194,16 @@ export default function PaymentButton({ productName, amount, customerName = '사
             alert(`결제 검증 실패: ${verifyResult.message}`);
           }
         } catch (error) {
-          console.error('결제 검증 중 오류 발생:', {
-            error: error instanceof Error ? {
-              name: error.name,
-              message: error.message,
-              stack: error.stack
-            } : String(error),
-            type: typeof error
-          });
+          // 각 항목 개별적으로 로깅
+          console.error('결제 검증 중 오류 발생');
+          
+          if (error instanceof Error) {
+            console.error('- 오류 이름:', error.name);
+            console.error('- 오류 메시지:', error.message);
+            console.error('- 스택 트레이스:', error.stack);
+          } else {
+            console.error('- 오류 내용:', String(error));
+          }
           
           setPaymentStatus({
             status: 'FAILED',
@@ -212,7 +214,17 @@ export default function PaymentButton({ productName, amount, customerName = '사
         }
       }
     } catch (error) {
-      console.error('결제 모듈 실행 오류:', error);
+      // 각 항목 개별적으로 로깅
+      console.error('결제 모듈 실행 오류');
+      
+      if (error instanceof Error) {
+        console.error('- 오류 이름:', error.name);
+        console.error('- 오류 메시지:', error.message);
+        console.error('- 스택 트레이스:', error.stack);
+      } else {
+        console.error('- 오류 내용:', String(error));
+      }
+      
       setPaymentStatus({
         status: 'FAILED',
         message: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.'
