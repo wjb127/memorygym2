@@ -113,6 +113,7 @@ export default function PaymentButton({
     console.log('결제 처리 시작');
     console.log('SDK 로드 상태:', isSdkLoaded);
     console.log('window.PortOne 존재 여부:', !!window.PortOne);
+    console.log('고객 정보:', { 이름: customerName, 이메일: customerEmail, 휴대폰: customerMobile });
     
     if (!window.PortOne) {
       console.error('window.PortOne이 존재하지 않습니다. SDK가 제대로 로드되지 않았습니다.');
@@ -158,7 +159,7 @@ export default function PaymentButton({
         currency: 'KRW',
         payMethod: 'CARD', // 카드 결제
         customer: {
-          name: customerName || '고객',
+          name: customerName || '구매자',
           email: customerEmail,
           phoneNumber: customerMobile || '01012345678'
         },
