@@ -12,7 +12,7 @@ export default function PremiumPage() {
     {
       id: 'monthly',
       name: '월간 프리미엄',
-      price: 100,
+      price: 1000,
       features: [
         '모든 상자의 무제한 카드 추가',
         '고급 학습 통계 제공',
