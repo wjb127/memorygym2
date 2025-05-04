@@ -89,21 +89,39 @@ export default function PaymentButton({ productName, amount, customerName = '사
         throw new Error('포트원 설정 정보가 없습니다. 환경변수를 확인해주세요.');
       }
       
+      // 포트원 초기화
+      try {
+        await PortOne.init({
+          storeId: storeId,
+          channelKey: channelKey,
+        });
+        console.log('포트원 초기화 성공');
+      } catch (initError) {
+        console.error('포트원 초기화 실패:', initError);
+        throw new Error('결제 모듈 초기화에 실패했습니다.');
+      }
+      
       // KG이니시스 결제 요청
+      console.log('결제 요청 데이터:', {
+        paymentId,
+        orderName: productName,
+        totalAmount: amount,
+        currency: 'KRW',
+        payMethod: 'CARD',
+      });
+      
       const payment = await PortOne.requestPayment({
-        storeId: storeId,
-        channelKey: channelKey,
         paymentId: paymentId,
         orderName: productName,
         totalAmount: amount,
         currency: 'KRW',
-        payMethod: 'CARD', // 카드 결제
+        payMethod: 'CARD',
         customer: {
           fullName: customerName,
           phoneNumber: '01012341234', // 고객 전화번호
           email: 'customer@example.com', // 고객 이메일
         },
-        redirectUrl: `${window.location.origin}/payments/complete`, // 모바일에서 결제 후 리디렉션될 URL
+        redirectUrl: `${window.location.origin}/premium/success`, // 모바일에서 결제 후 리디렉션될 URL
         taxFreeAmount: 0, // 면세 금액
         variantKey: 'DEFAULT', // 기본 결제창 스타일
       });
