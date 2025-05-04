@@ -21,8 +21,7 @@ export async function POST(request: Request) {
     const secretKey = process.env.PORTONE_V2_API_SECRET;
     console.log('환경변수 확인:', { 
       secretKeyExists: !!secretKey,
-      secretKeyFirstChars: secretKey ? secretKey.substring(0, 8) + '...' : 'undefined',
-      secretKeyLength: secretKey ? secretKey.length : 0
+      secretKeyFirstChars: secretKey ? secretKey.substring(0, 4) + '...' : 'undefined'
     });
     
     if (!secretKey) {
@@ -39,8 +38,10 @@ export async function POST(request: Request) {
     
     // 테스트 계정 사용시
     const isTest = process.env.NODE_ENV === 'development' || process.env.IS_TEST === 'true';
+    
+    // 인증 헤더 형식 수정: Secret <SECRET_KEY> -> Bearer <SECRET_KEY>
     const headers = {
-      'Authorization': `Secret ${secretKey}`,
+      'Authorization': `Bearer ${secretKey}`,
       'Content-Type': 'application/json',
     };
     
