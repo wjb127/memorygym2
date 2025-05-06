@@ -1,5 +1,7 @@
+import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { cookies } from 'next/headers';
 
 // IP별 요청 횟수를 추적할 저장소
 const ipStore: Record<string, { count: number; lastReset: number }> = {};
@@ -7,6 +9,19 @@ const ipStore: Record<string, { count: number; lastReset: number }> = {};
 // 기본 설정: 1분당 3회 요청 제한
 const MAX_REQUESTS = 3;       // 최대 요청 횟수
 const WINDOW_SIZE = 60 * 1000; // 시간 창 (1분)
+
+// 보호된 라우트 목록
+const protectedRoutes = [
+  '/premium',
+  '/payments',
+];
+
+// 인증이 필요하지 않은 라우트 목록
+const authRoutes = [
+  '/login',
+  '/signup',
+  '/reset-password',
+];
 
 /**
  * 속도 제한을 적용할 미들웨어 함수
@@ -63,10 +78,75 @@ async function rateLimit(request: NextRequest) {
   return response;
 }
 
-// Next.js 미들웨어 설정
-export const middleware = rateLimit;
+export async function middleware(request: NextRequest) {
+  const response = NextResponse.next();
+  
+  // Supabase 클라이언트 생성
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name) {
+          return request.cookies.get(name)?.value;
+        },
+        set(name, value, options) {
+          // 응답에 쿠키 설정
+          if (options?.maxAge) {
+            response.cookies.set({
+              name,
+              value,
+              ...options,
+              expires: new Date(Date.now() + options.maxAge * 1000),
+            });
+          } else {
+            response.cookies.set({
+              name,
+              value,
+              ...options,
+            });
+          }
+        },
+        remove(name, options) {
+          response.cookies.set({
+            name,
+            value: '',
+            ...options,
+            maxAge: 0,
+          });
+        },
+      },
+    }
+  );
+  
+  const { data: { session } } = await supabase.auth.getSession();
+  const { pathname } = request.nextUrl;
+  
+  // 인증이 필요한 페이지에 접근하려는 경우
+  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+  
+  // 인증 관련 페이지에 접근하려는 경우
+  const isAuthRoute = authRoutes.some(route => pathname === route);
+  
+  // 인증이 필요한 페이지인데 로그인이 안 된 경우 -> 로그인 페이지로 리다이렉트
+  if (isProtectedRoute && !session) {
+    const redirectUrl = new URL('/login', request.url);
+    redirectUrl.searchParams.set('redirectedFrom', pathname);
+    return NextResponse.redirect(redirectUrl);
+  }
+  
+  // 이미 로그인한 상태에서 인증 페이지에 접근하는 경우 -> 홈페이지로 리다이렉트
+  if (isAuthRoute && session) {
+    return NextResponse.redirect(new URL('/', request.url));
+  }
+  
+  return response;
+}
 
-// 미들웨어를 적용할 경로 설정
+// 미들웨어가 실행될 경로 설정
 export const config = {
-  matcher: ['/api/feedback/:path*'],
+  matcher: [
+    // 모든 경로에 대해 미들웨어 실행
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 }; 

@@ -1,0 +1,183 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { createClientBrowser } from '@/utils/supabase';
+import SocialLogin from '../../components/SocialLogin';
+
+export default function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectedFrom = searchParams.get('redirectedFrom');
+  const errorParam = searchParams.get('error');
+  
+  // URL 파라미터로 전달된 오류 처리
+  useEffect(() => {
+    if (errorParam === 'auth_callback_error') {
+      setError('인증 과정에서 오류가 발생했습니다. 다시 시도해주세요.');
+    }
+  }, [errorParam]);
+  
+  // 에러 메시지 초기화
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+  
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!email || !password) {
+      setError('이메일과 비밀번호를 입력해주세요.');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const supabase = createClientBrowser();
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) throw error;
+      
+      // 로그인 성공 시 리다이렉트
+      if (redirectedFrom) {
+        router.push(redirectedFrom);
+      } else {
+        router.push('/');
+      }
+      router.refresh();
+    } catch (err: any) {
+      console.error('로그인 오류:', err);
+      
+      // 특정 오류 메시지 처리
+      if (err.message?.includes('Invalid login')) {
+        setError('이메일 또는 비밀번호가 올바르지 않습니다.');
+      } else if (err.message?.includes('Email not confirmed')) {
+        setError('이메일 확인이 필요합니다. 이메일을 확인해주세요.');
+      } else {
+        setError(err.message || '로그인 중 오류가 발생했습니다. 이메일과 비밀번호를 확인해주세요.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md space-y-8 bg-white p-6 rounded-lg shadow-md border border-[var(--neutral-300)]">
+        <div className="text-center">
+          <Link href="/" className="inline-block mb-4 text-[var(--neutral-700)] hover:text-[var(--primary)]">
+            ← 홈으로 돌아가기
+          </Link>
+          <h1 className="text-2xl font-bold">로그인</h1>
+          <p className="mt-2 text-[var(--neutral-700)]">암기훈련소에 다시 오신 것을 환영합니다!</p>
+        </div>
+        
+        {error && (
+          <div className="bg-red-50 text-red-500 p-3 rounded-md text-sm">
+            {error}
+          </div>
+        )}
+        
+        <form onSubmit={handleLogin} className="mt-8 space-y-6">
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-[var(--neutral-700)]">
+              이메일
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1 block w-full rounded-md border border-[var(--neutral-300)] p-2"
+              placeholder="이메일 주소"
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-[var(--neutral-700)]">
+              비밀번호
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1 block w-full rounded-md border border-[var(--neutral-300)] p-2"
+              placeholder="비밀번호"
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                name="remember-me"
+                type="checkbox"
+                className="h-4 w-4 text-[var(--primary)] border-[var(--neutral-300)]"
+              />
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-[var(--neutral-700)]">
+                로그인 상태 유지
+              </label>
+            </div>
+            
+            <div className="text-sm">
+              <Link href="/reset-password" className="text-[var(--primary)] hover:underline">
+                비밀번호를 잊으셨나요?
+              </Link>
+            </div>
+          </div>
+          
+          <div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-[var(--primary)] text-white p-2 rounded-md hover:bg-opacity-90 transition-all disabled:opacity-50"
+            >
+              {loading ? '로그인 중...' : '로그인'}
+            </button>
+          </div>
+        </form>
+        
+        <div className="mt-4">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-[var(--neutral-300)]"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-[var(--neutral-700)]">또는</span>
+            </div>
+          </div>
+          
+          <SocialLogin />
+          
+          <div className="mt-6 text-center text-sm">
+            <p>
+              계정이 없으신가요?{' '}
+              <Link href="/signup" className="text-[var(--primary)] hover:underline">
+                회원가입
+              </Link>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+} 

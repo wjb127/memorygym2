@@ -1,19 +1,44 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import StudySession from "../components/StudySession";
 import AddCardForm from "../components/AddCardForm";
 import BoxManager from "../components/BoxManager";
 import SubjectManager from "../components/SubjectManager";
 import TabLayout from "../components/TabLayout";
 import FeedbackButton from "../components/FeedbackButton";
+import { createClientBrowser } from '@/utils/supabase';
 
 export default function Home() {
   const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  // 사용자 인증 상태 확인
+  useEffect(() => {
+    const checkUser = async () => {
+      const supabase = createClientBrowser();
+      const { data } = await supabase.auth.getSession();
+      setUser(data.session?.user || null);
+      setLoading(false);
+    };
+    
+    checkUser();
+  }, []);
 
   // 새로고침 핸들러
   const handleCardAdded = () => {
     // 카드가 추가된 후 페이지 새로고침
+    router.refresh();
+  };
+
+  // 로그아웃 핸들러
+  const handleLogout = async () => {
+    const supabase = createClientBrowser();
+    await supabase.auth.signOut();
+    setUser(null);
     router.refresh();
   };
 
@@ -43,11 +68,39 @@ export default function Home() {
 
   return (
     <main className="min-h-screen flex flex-col p-4 md:p-6 max-w-4xl mx-auto">
-      <header className="mb-8 text-center">
-        <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] bg-clip-text text-transparent">
-          💪 암기훈련소
-        </h1>
-        <p className="mt-2 text-[var(--neutral-700)]">당신의 두뇌를 위한 최고의 트레이닝</p>
+      <header className="mb-8">
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] bg-clip-text text-transparent">
+            💪 암기훈련소
+          </h1>
+          
+          <div className="flex items-center space-x-2">
+            {loading ? (
+              <div className="text-sm text-[var(--neutral-500)]">로딩 중...</div>
+            ) : user ? (
+              <>
+                <span className="text-sm text-[var(--neutral-700)]">{user.email}</span>
+                <button 
+                  onClick={handleLogout}
+                  className="px-3 py-1 text-sm bg-[var(--neutral-200)] hover:bg-[var(--neutral-300)] rounded-md transition-colors"
+                >
+                  로그아웃
+                </button>
+              </>
+            ) : (
+              <>
+                <Link href="/login" className="px-3 py-1 text-sm bg-[var(--neutral-200)] hover:bg-[var(--neutral-300)] rounded-md transition-colors">
+                  로그인
+                </Link>
+                <Link href="/signup" className="px-3 py-1 text-sm bg-[var(--primary)] text-white hover:bg-opacity-90 rounded-md transition-colors">
+                  회원가입
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+        
+        <p className="text-center mt-2 text-[var(--neutral-700)]">당신의 두뇌를 위한 최고의 트레이닝</p>
       </header>
       
       <div className="bg-[var(--neutral-100)] rounded-xl shadow-lg p-4 md:p-6 flex-grow border border-[var(--neutral-300)]">

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { Subject } from './types';
+// 서버 컴포넌트 관련 import 제거
 
 // Supabase 클라이언트 생성
 // 실제 프로젝트에서는 환경 변수에서 값을 가져와야 합니다
@@ -7,15 +8,19 @@ import { Subject } from './types';
 // NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
 // NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 
-// 실제 Supabase 연결 설정
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// 환경 변수에서 Supabase URL과 API 키를 가져옵니다.
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Supabase URL 또는 Anon Key가 설정되지 않았습니다. .env.local 파일을 확인해주세요.');
 }
 
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+
+// 브라우저에서 사용할 Supabase 클라이언트
+export const createClientBrowser = () => 
+  createClient(supabaseUrl, supabaseAnonKey)
 
 // 개발 환경용 더미 데이터 구현 (실제 API 호출 대신 가짜 데이터 반환)
 // Supabase 연결 없이도 UI가 작동하도록 합니다
