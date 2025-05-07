@@ -7,12 +7,23 @@ import PremiumContent from '../../components/PremiumContent';
 export default async function PremiumPage() {
   const cookieStore = await cookies();
   
+  // Supabase project ref 추출하여 쿠키 이름 동적 생성
+  const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL?.split('.')[0]?.split('https://')[1];
+  const authCookieName = `sb-${projectRef}-auth-token`;
+  
+  console.log(`[프리미엄 페이지] 동적 쿠키 이름: ${authCookieName}`);
+  console.log(`[프리미엄 페이지] 쿠키 존재 여부: ${!!cookieStore.get(authCookieName)}`);
+  
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     { 
       cookies: { 
         get(key) {
+          // 인증 토큰 쿠키인 경우 동적 이름 사용
+          if (key === 'sb-auth-token') {
+            return cookieStore.get(authCookieName)?.value;
+          }
           return cookieStore.get(key)?.value;
         }
       } 
