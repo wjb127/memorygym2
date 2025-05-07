@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClientBrowser } from '@/utils/supabase';
 import SocialLogin from '../../components/SocialLogin';
 
-export default function SignUp() {
+// 회원가입 폼 컴포넌트
+function SignUpForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -196,5 +197,26 @@ export default function SignUp() {
         </div>
       </div>
     </div>
+  );
+}
+
+// 메인 회원가입 페이지 컴포넌트
+export default function SignUp() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen flex-col items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-8 bg-white p-6 rounded-lg shadow-md border border-[var(--neutral-300)]">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold">회원가입</h1>
+            <p className="mt-2 text-[var(--neutral-700)]">로딩 중...</p>
+          </div>
+          <div className="flex justify-center my-8">
+            <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-[var(--primary)] border-r-transparent"></div>
+          </div>
+        </div>
+      </div>
+    }>
+      <SignUpForm />
+    </Suspense>
   );
 } 
