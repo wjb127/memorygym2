@@ -13,8 +13,8 @@ const projectRef = supabaseUrl?.split('.')[0]?.split('https://')[1];
 const authCookieName = `sb-${projectRef}-auth-token`;
 
 // 서버 컴포넌트에서 사용할 Supabase 클라이언트 (세션 관리 없음)
-export const createClientServer = () => 
-  createSupabaseClient(
+export async function createClientServer() {
+  return createSupabaseClient(
     supabaseUrl,
     supabaseAnonKey,
     {
@@ -23,9 +23,10 @@ export const createClientServer = () =>
       }
     }
   );
+}
 
 // 서버 액션에서 사용할 Supabase 클라이언트
-export const createSupabaseServerActionClient = async () => {
+export async function createSupabaseServerActionClient() {
   const cookieStore = await cookies();
   
   return createServerClient(
@@ -49,7 +50,7 @@ export const createSupabaseServerActionClient = async () => {
       },
     }
   );
-};
+}
 
 // 서버 컴포넌트에서 사용할 Supabase 클라이언트 (세션 관리 포함)
 export async function createClient() {
@@ -73,7 +74,7 @@ export async function createClient() {
             cookieStore.set({ name, value, ...options });
           } catch {
             // 서버 컴포넌트에서는 쿠키 설정이 제한됨
-            console.log(`[서버] 쿠키 설정 시도: ${name} - 미들웨어에서 처리됨`);
+            console.log(`[서버] 쿠키 설정 시도: ${name}`);
           }
         },
         remove(name, options) {
@@ -81,7 +82,7 @@ export async function createClient() {
             cookieStore.set({ name, value: '', ...options });
           } catch {
             // 서버 컴포넌트에서는 쿠키 삭제가 제한됨
-            console.log(`[서버] 쿠키 삭제 시도: ${name} - 미들웨어에서 처리됨`);
+            console.log(`[서버] 쿠키 삭제 시도: ${name}`);
           }
         },
       },
