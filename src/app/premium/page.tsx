@@ -1,11 +1,24 @@
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '@/utils/supabase-server';
-import PremiumContent from '@/components/PremiumContent';
+import PremiumContent from '../../components/PremiumContent';
 
 export default async function PremiumPage() {
-  // 서버에서 세션 확인
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { 
+      cookies: { 
+        get(key) {
+          return cookieStore.get(key)?.value;
+        }
+      } 
+    }
+  );
+  
   const { data: { session } } = await supabase.auth.getSession();
   
   // 로그인하지 않은 경우 로그인 페이지로 리다이렉트

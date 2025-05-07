@@ -92,13 +92,17 @@ export async function middleware(request: NextRequest) {
   
   // 세션 확인이 필요한 경우에만 추가 처리
   if (isProtectedRoute || isAuthRoute) {
+    // Supabase project ref 추출하여 쿠키 이름 동적 생성
+    const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL?.split('.')[0]?.split('https://')[1];
+    const authCookieName = `sb-${projectRef}-auth-token`;
+    
     // 쿠키 디버깅 로그
     console.log(`[미들웨어] 경로: ${pathname}`);
+    console.log(`[미들웨어] 동적 쿠키 이름: ${authCookieName}`);
     console.log(`[미들웨어] 요청 쿠키:`, Object.fromEntries(request.cookies.getAll().map(cookie => [cookie.name, cookie.value.substring(0, 10) + '...'])));
     
-    // 세션 확인을 위한 Supabase 클라이언트는 이미 updateSession에서 생성되었음
-    // 이제 응답에 설정된 쿠키를 확인하여 세션 여부 판단
-    const supabaseCookie = response.cookies.get('sb-access-token') || response.cookies.get('sb-refresh-token');
+    // 동적으로 생성된 쿠키 이름으로 세션 확인
+    const supabaseCookie = request.cookies.get(authCookieName);
     const hasSession = !!supabaseCookie;
     
     console.log(`[미들웨어] 세션 확인 결과: ${hasSession ? '세션 있음' : '세션 없음'}`);
