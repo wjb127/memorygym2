@@ -1,24 +1,41 @@
 'use client';
 
 import { useState } from 'react';
-import { createClientBrowser } from '@/utils/supabase';
+import { createClient } from '@/utils/supabase-browser';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 
-export default function SocialLogin() {
+interface SocialLoginProps {
+  redirectedFrom?: string | null;
+}
+
+export default function SocialLogin({ redirectedFrom }: SocialLoginProps) {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const redirectParam = redirectedFrom || searchParams.get('redirectedFrom');
   
   const handleSocialLogin = async (provider: 'google') => {
     try {
       setLoading(provider);
       setError(null);
       
-      const supabase = createClientBrowser();
+      const supabase = createClient();
+      
+      // 콜백 URL 생성
+      const callbackUrl = new URL(`${window.location.origin}/auth/callback`);
+      
+      // 리다이렉트 파라미터가 있으면 추가
+      if (redirectParam) {
+        callbackUrl.searchParams.set('redirectedFrom', redirectParam);
+      }
+      
+      console.log(`소셜 로그인 시도: ${provider}, 콜백 URL: ${callbackUrl.toString()}`);
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: callbackUrl.toString(),
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',

@@ -1,7 +1,6 @@
-import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { cookies } from 'next/headers';
+import { updateSession } from '@/utils/supabase-middleware';
 
 // IP별 요청 횟수를 추적할 저장소
 const ipStore: Record<string, { count: number; lastReset: number }> = {};
@@ -79,47 +78,7 @@ async function rateLimit(request: NextRequest) {
 }
 
 export async function middleware(request: NextRequest) {
-  const response = NextResponse.next();
-  
-  // Supabase 클라이언트 생성
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name) {
-          return request.cookies.get(name)?.value;
-        },
-        set(name, value, options) {
-          // 응답에 쿠키 설정
-          if (options?.maxAge) {
-            response.cookies.set({
-              name,
-              value,
-              ...options,
-              expires: new Date(Date.now() + options.maxAge * 1000),
-            });
-          } else {
-            response.cookies.set({
-              name,
-              value,
-              ...options,
-            });
-          }
-        },
-        remove(name, options) {
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-            maxAge: 0,
-          });
-        },
-      },
-    }
-  );
-  
-  const { data: { session } } = await supabase.auth.getSession();
+  // 현재 경로 확인
   const { pathname } = request.nextUrl;
   
   // 인증이 필요한 페이지에 접근하려는 경우
@@ -128,18 +87,43 @@ export async function middleware(request: NextRequest) {
   // 인증 관련 페이지에 접근하려는 경우
   const isAuthRoute = authRoutes.some(route => pathname === route);
   
-  // 인증이 필요한 페이지인데 로그인이 안 된 경우 -> 로그인 페이지로 리다이렉트
-  if (isProtectedRoute && !session) {
-    const redirectUrl = new URL('/login', request.url);
-    redirectUrl.searchParams.set('redirectedFrom', pathname);
-    return NextResponse.redirect(redirectUrl);
+  // 세션 갱신
+  const response = await updateSession(request);
+  
+  // 세션 확인이 필요한 경우에만 추가 처리
+  if (isProtectedRoute || isAuthRoute) {
+    // 쿠키 디버깅 로그
+    console.log(`[미들웨어] 경로: ${pathname}`);
+    console.log(`[미들웨어] 요청 쿠키:`, Object.fromEntries(request.cookies.getAll().map(cookie => [cookie.name, cookie.value.substring(0, 10) + '...'])));
+    
+    // 세션 확인을 위한 Supabase 클라이언트는 이미 updateSession에서 생성되었음
+    // 이제 응답에 설정된 쿠키를 확인하여 세션 여부 판단
+    const supabaseCookie = response.cookies.get('sb-access-token') || response.cookies.get('sb-refresh-token');
+    const hasSession = !!supabaseCookie;
+    
+    console.log(`[미들웨어] 세션 확인 결과: ${hasSession ? '세션 있음' : '세션 없음'}`);
+    
+    // 세션이 있으면 로그인 상태로 간주
+    if (hasSession) {
+      // 이미 로그인한 상태에서 인증 페이지에 접근하는 경우 -> 홈페이지로 리다이렉트
+      if (isAuthRoute) {
+        console.log(`[미들웨어] 인증 경로 ${pathname}에 접근 시도, 로그인됨. 홈으로 리다이렉트`);
+        return NextResponse.redirect(new URL('/', request.url));
+      }
+      
+      return response;
+    }
+    
+    // 인증이 필요한 페이지인데 로그인이 안 된 경우 -> 로그인 페이지로 리다이렉트
+    if (isProtectedRoute) {
+      console.log(`[미들웨어] 보호된 경로 ${pathname}에 접근 시도, 로그인 안됨. 로그인으로 리다이렉트`);
+      const redirectUrl = new URL('/login', request.url);
+      redirectUrl.searchParams.set('redirectedFrom', pathname);
+      return NextResponse.redirect(redirectUrl);
+    }
   }
   
-  // 이미 로그인한 상태에서 인증 페이지에 접근하는 경우 -> 홈페이지로 리다이렉트
-  if (isAuthRoute && session) {
-    return NextResponse.redirect(new URL('/', request.url));
-  }
-  
+  // 그 외의 경우 일반 응답 반환
   return response;
 }
 

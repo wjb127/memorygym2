@@ -10,23 +10,11 @@ import SubjectManager from "../components/SubjectManager";
 import TabLayout from "../components/TabLayout";
 import FeedbackButton from "../components/FeedbackButton";
 import { createClientBrowser } from '@/utils/supabase';
+import { useAuth } from '@/context/AuthContext';
 
 export default function Home() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-
-  // 사용자 인증 상태 확인
-  useEffect(() => {
-    const checkUser = async () => {
-      const supabase = createClientBrowser();
-      const { data } = await supabase.auth.getSession();
-      setUser(data.session?.user || null);
-      setLoading(false);
-    };
-    
-    checkUser();
-  }, []);
+  const { user, isLoading, signOut } = useAuth();
 
   // 새로고침 핸들러
   const handleCardAdded = () => {
@@ -36,9 +24,7 @@ export default function Home() {
 
   // 로그아웃 핸들러
   const handleLogout = async () => {
-    const supabase = createClientBrowser();
-    await supabase.auth.signOut();
-    setUser(null);
+    await signOut();
     router.refresh();
   };
 
@@ -75,7 +61,7 @@ export default function Home() {
           </h1>
           
           <div className="flex items-center space-x-2">
-            {loading ? (
+            {isLoading ? (
               <div className="text-sm text-[var(--neutral-500)]">로딩 중...</div>
             ) : user ? (
               <>
@@ -110,7 +96,7 @@ export default function Home() {
       <footer className="mt-8 text-center text-sm text-[var(--neutral-700)]">
         <p>💪 암기훈련소 - 매일 훈련하는 두뇌는 더 강해집니다</p>
         <p className="mt-2">
-          <a href="/premium" className="text-[var(--primary)] hover:underline">프리미엄으로 업그레이드 →</a>
+          <Link href="/premium" className="text-[var(--primary)] hover:underline">프리미엄으로 업그레이드 →</Link>
         </p>
       </footer>
 
