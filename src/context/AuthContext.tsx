@@ -60,8 +60,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   // 로그아웃 함수
   const signOut = async () => {
-    const supabase = createClientBrowser();
-    await supabase.auth.signOut();
+    try {
+      const supabase = createClientBrowser();
+      
+      // Supabase 세션 로그아웃
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('로그아웃 오류:', error);
+        return;
+      }
+      
+      // 상태 초기화
+      setUser(null);
+      setSession(null);
+      
+      // 쿠키 제거를 위한 추가 처리
+      // Supabase 프로젝트 ref 추출
+      const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL?.split('.')[0]?.split('https://')[1];
+      
+      // 관련 쿠키 모두 제거
+      document.cookie = `sb-${projectRef}-auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax;`;
+      document.cookie = `sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax;`;
+      document.cookie = `sb-refresh-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax;`;
+      
+      console.log('로그아웃 완료, 세션 및 쿠키 제거됨');
+    } catch (err) {
+      console.error('로그아웃 중 오류 발생:', err);
+    }
   };
   
   // 세션 새로고침 함수

@@ -24,8 +24,17 @@ export default function Home() {
 
   // 로그아웃 핸들러
   const handleLogout = async () => {
-    await signOut();
-    router.refresh();
+    try {
+      await signOut();
+      
+      // 페이지 새로고침 및 홈으로 리다이렉트
+      router.refresh();
+      
+      // 브라우저 캐시 초기화를 위한 강제 새로고침
+      window.location.href = '/';
+    } catch (error) {
+      console.error('로그아웃 처리 중 오류:', error);
+    }
   };
 
   // 탭 구성
