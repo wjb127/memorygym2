@@ -173,8 +173,8 @@ export default function ServicePage() {
           </p>
           
           <ul className="list-disc ml-5 space-y-2">
-            <li>이메일: support@memorygym.co.kr</li>
-            <li>전화: 02-123-4567 (평일 10:00 ~ 18:00, 점심시간 12:30 ~ 13:30, 주말/공휴일 휴무)</li>
+            <li>이메일: wjb127@naver.com</li>
+            <li>전화: 010-5056-8463 (평일 10:00 ~ 18:00, 점심시간 12:30 ~ 13:30, 주말/공휴일 휴무)</li>
             <li>서비스 내 '피드백' 버튼을 통한 문의</li>
           </ul>
           

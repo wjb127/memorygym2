@@ -6,7 +6,7 @@ export default function PrivacyPage() {
       <div className="space-y-8">
         <section>
           <p className="mb-4">
-            주식회사 메모리짐(이하 '회사')은 이용자의 개인정보를 중요시하며, 「정보통신망 이용촉진 및 정보보호 등에 관한 법률」, 「개인정보 보호법」 등 관련 법령을 준수하기 위하여 노력하고 있습니다. 회사는 개인정보 처리방침을 통하여 회사가 이용자로부터 수집하는 개인정보의 항목, 개인정보의 수집 및 이용목적, 개인정보의 보유 및 이용기간, 개인정보의 제3자 제공 및 취급위탁에 관한 사항을 알려드립니다.
+            앱돌이공장(이하 '회사')은 이용자의 개인정보를 중요시하며, 「정보통신망 이용촉진 및 정보보호 등에 관한 법률」, 「개인정보 보호법」 등 관련 법령을 준수하기 위하여 노력하고 있습니다. 회사는 개인정보 처리방침을 통하여 회사가 이용자로부터 수집하는 개인정보의 항목, 개인정보의 수집 및 이용목적, 개인정보의 보유 및 이용기간, 개인정보의 제3자 제공 및 취급위탁에 관한 사항을 알려드립니다.
           </p>
         </section>
 
@@ -193,9 +193,9 @@ export default function PrivacyPage() {
           
           <div className="ml-5">
             <p><span className="font-medium">개인정보 보호책임자</span></p>
-            <p className="ml-4">성명: 홍길동</p>
+            <p className="ml-4">성명: 위승빈</p>
             <p className="ml-4">직책: 개인정보보호 책임자</p>
-            <p className="ml-4">연락처: privacy@memorygym.co.kr, 02-123-4567</p>
+            <p className="ml-4">연락처: wjb127@naver.com, 010-5056-8463</p>
           </div>
         </section>
 
@@ -203,7 +203,7 @@ export default function PrivacyPage() {
           <h2 className="text-xl font-semibold mb-4" id="section-10">10. 개인정보 처리방침 변경</h2>
           
           <p className="mb-4">
-            이 개인정보 처리방침은 2023년 1월 1일부터 적용됩니다. 법령 및 방침에 따른 변경내용의 추가, 삭제 및 정정이 있는 경우에는 변경사항의 시행 7일 전부터 공지사항을 통하여 고지할 것입니다.
+            이 개인정보 처리방침은 2025년 2월 24일부터 적용됩니다. 법령 및 방침에 따른 변경내용의 추가, 삭제 및 정정이 있는 경우에는 변경사항의 시행 7일 전부터 공지사항을 통하여 고지할 것입니다.
           </p>
         </section>
       </div>

@@ -16,7 +16,7 @@ export default function TermsPage() {
             <div>
               <h3 className="font-semibold" id="article-1">제1조 (목적)</h3>
               <p className="mt-2">
-                이 약관은 주식회사 메모리짐(이하 "회사")이 제공하는 암기훈련소 서비스(이하 "서비스")의 이용과 관련하여 회사와 이용자 간의 권리, 의무 및 책임사항, 기타 필요한 사항을 규정함을 목적으로 합니다.
+                이 약관은 앱돌이공장(이하 "회사")이 제공하는 암기훈련소 서비스(이하 "서비스")의 이용과 관련하여 회사와 이용자 간의 권리, 의무 및 책임사항, 기타 필요한 사항을 규정함을 목적으로 합니다.
               </p>
             </div>
             
@@ -137,7 +137,7 @@ export default function TermsPage() {
         
         <div className="mt-10 pt-6 border-t border-[var(--neutral-300)]">
           <p className="text-center text-sm text-[var(--neutral-700)]">
-            본 약관은 2023년 1월 1일부터 시행합니다.
+            본 약관은 2025년 2월 24일부터 시행합니다.
           </p>
         </div>
         
