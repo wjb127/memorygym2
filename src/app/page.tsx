@@ -107,6 +107,25 @@ export default function Home() {
         <p className="mt-2">
           <Link href="/premium" className="text-[var(--primary)] hover:underline">프리미엄으로 업그레이드 →</Link>
         </p>
+        
+        <div className="mt-6 pt-4 border-t border-[var(--neutral-300)]">
+          <div className="flex flex-wrap justify-center gap-3 mb-4">
+            <Link href="/terms" className="hover:underline text-xs">이용약관</Link>
+            <span className="text-xs">|</span>
+            <Link href="/privacy" className="hover:underline text-xs">개인정보 처리방침</Link>
+            <span className="text-xs">|</span>
+            <Link href="/refund-policy" className="hover:underline text-xs">환불 정책</Link>
+            <span className="text-xs">|</span>
+            <Link href="/service" className="hover:underline text-xs">서비스 안내</Link>
+          </div>
+          
+          <div className="text-xs text-[var(--neutral-700)] space-y-1">
+            <p>(주)메모리짐 | 대표: 홍길동 | 사업자등록번호: 123-45-67890</p>
+            <p>통신판매업신고: 제2023-서울강남-1234호 | 주소: 서울특별시 강남구 테헤란로 123, 4층</p>
+            <p>고객센터: 02-123-4567 | 이메일: contact@memorygym.co.kr</p>
+            <p>© 2023 MemoryGym Inc. All rights reserved.</p>
+          </div>
+        </div>
       </footer>
 
       {/* 피드백 버튼 */}
