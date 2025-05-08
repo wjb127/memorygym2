@@ -120,10 +120,10 @@ export default function Home() {
           </div>
           
           <div className="text-xs text-[var(--neutral-700)] space-y-1">
-            <p>(주)메모리짐 | 대표: 홍길동 | 사업자등록번호: 123-45-67890</p>
-            <p>통신판매업신고: 제2023-서울강남-1234호 | 주소: 서울특별시 강남구 테헤란로 123, 4층</p>
-            <p>고객센터: 02-123-4567 | 이메일: contact@memorygym.co.kr</p>
-            <p>© 2023 MemoryGym Inc. All rights reserved.</p>
+            <p>앱돌이공장 | 대표: 위승빈 | 사업자등록번호: 850-06-03291</p>
+            <p>통신판매업신고: 제2025-서울마포-0692호 | 주소: 서울특별시 월드컵북로44길 72</p>
+            <p>고객센터: 010-5056-8463 | 이메일: wjb127@naver.com</p>
+            <p>© 2025 앱돌이공장 All rights reserved.</p>
           </div>
         </div>
       </footer>

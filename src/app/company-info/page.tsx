@@ -10,23 +10,23 @@ export default function CompanyInfoPage() {
             <tbody>
               <tr className="border-b border-[var(--neutral-300)]">
                 <th className="py-3 px-4 text-left bg-[var(--neutral-200)] w-1/3 rounded-tl-md">회사명</th>
-                <td className="py-3 px-4 rounded-tr-md">(주)메모리짐</td>
+                <td className="py-3 px-4 rounded-tr-md">앱돌이공장</td>
               </tr>
               <tr className="border-b border-[var(--neutral-300)]">
                 <th className="py-3 px-4 text-left bg-[var(--neutral-200)] w-1/3">대표자명</th>
-                <td className="py-3 px-4">홍길동</td>
+                <td className="py-3 px-4">위승빈</td>
               </tr>
               <tr className="border-b border-[var(--neutral-300)]">
                 <th className="py-3 px-4 text-left bg-[var(--neutral-200)] w-1/3">사업자등록번호</th>
-                <td className="py-3 px-4">123-45-67890</td>
+                <td className="py-3 px-4">850-06-03291</td>
               </tr>
               <tr className="border-b border-[var(--neutral-300)]">
                 <th className="py-3 px-4 text-left bg-[var(--neutral-200)] w-1/3">통신판매업신고번호</th>
-                <td className="py-3 px-4">제2023-서울강남-1234호</td>
+                <td className="py-3 px-4">제2025-서울마포-0692호</td>
               </tr>
               <tr className="border-b border-[var(--neutral-300)]">
                 <th className="py-3 px-4 text-left bg-[var(--neutral-200)] w-1/3">설립일</th>
-                <td className="py-3 px-4">2023년 1월 1일</td>
+                <td className="py-3 px-4">2025년 2월 24일</td>
               </tr>
               <tr className="border-b border-[var(--neutral-300)]">
                 <th className="py-3 px-4 text-left bg-[var(--neutral-200)] w-1/3 rounded-bl-md">사업의 종류</th>
@@ -42,19 +42,15 @@ export default function CompanyInfoPage() {
             <tbody>
               <tr className="border-b border-[var(--neutral-300)]">
                 <th className="py-3 px-4 text-left bg-[var(--neutral-200)] w-1/3 rounded-tl-md">주소</th>
-                <td className="py-3 px-4 rounded-tr-md">서울특별시 강남구 테헤란로 123, 4층 (역삼동, 메모리짐타워)</td>
+                <td className="py-3 px-4 rounded-tr-md">서울특별시 월드컵북로44길 72</td>
               </tr>
               <tr className="border-b border-[var(--neutral-300)]">
                 <th className="py-3 px-4 text-left bg-[var(--neutral-200)] w-1/3">대표 전화</th>
-                <td className="py-3 px-4">02-123-4567</td>
-              </tr>
-              <tr className="border-b border-[var(--neutral-300)]">
-                <th className="py-3 px-4 text-left bg-[var(--neutral-200)] w-1/3">팩스</th>
-                <td className="py-3 px-4">02-123-4568</td>
+                <td className="py-3 px-4">010-5056-8463</td>
               </tr>
               <tr className="border-b border-[var(--neutral-300)]">
                 <th className="py-3 px-4 text-left bg-[var(--neutral-200)] w-1/3">이메일</th>
-                <td className="py-3 px-4">contact@memorygym.co.kr</td>
+                <td className="py-3 px-4">wjb127@naver.com</td>
               </tr>
               <tr className="border-b border-[var(--neutral-300)]">
                 <th className="py-3 px-4 text-left bg-[var(--neutral-200)] w-1/3 rounded-bl-md">고객센터 운영시간</th>
@@ -78,7 +74,7 @@ export default function CompanyInfoPage() {
               </tr>
               <tr className="border-b border-[var(--neutral-300)]">
                 <th className="py-3 px-4 text-left bg-[var(--neutral-200)] w-1/3 rounded-bl-md">호스팅 서비스 제공자</th>
-                <td className="py-3 px-4 rounded-br-md">Vercel Inc.</td>
+                <td className="py-3 px-4 rounded-br-md">Supabase</td>
               </tr>
             </tbody>
           </table>
