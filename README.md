@@ -219,3 +219,40 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
 ## 라이선스
 
 이 프로젝트는 MIT 라이선스를 따릅니다.
+
+## Vercel 배포 시 Supabase 설정
+
+### Supabase 데이터베이스 설정
+
+1. Supabase 콘솔에서 SQL 편집기로 이동합니다.
+2. `create_feedback_table.sql` 파일의 내용을 복사하여 실행합니다. 이 작업은 다음을 수행합니다:
+   - `feedback` 테이블이 없는 경우 테이블을 생성합니다.
+   - `create_feedback_table()` 함수를 만들어 API에서 사용할 수 있게 합니다.
+   - 익명 사용자가 피드백을 제출할 수 있도록 RLS(Row Level Security) 정책을 설정합니다.
+
+### Vercel 환경 변수 설정
+
+Vercel 프로젝트 설정에서 다음 환경 변수를 설정해야 합니다:
+
+1. `NEXT_PUBLIC_SUPABASE_URL` - Supabase 프로젝트 URL
+2. `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase 익명 키
+3. `SLACK_WEBHOOK_URL` - 피드백 알림을 받을 슬랙 웹훅 URL
+4. 다른 모든 환경 변수 - `.env.local`에서 Vercel로 복사
+
+## 문제 해결
+
+### 피드백 제출 오류
+
+"Supabase 에러: {}" 오류가 발생하는 경우 다음을 확인하세요:
+
+1. Supabase 프로젝트가 활성 상태인지 확인합니다.
+2. Vercel에 설정된 환경 변수가 올바른지 확인합니다.
+3. `feedback` 테이블이 Supabase에 생성되었는지 확인합니다.
+4. RLS 정책이 익명 사용자의 INSERT를 허용하는지 확인합니다.
+
+### 슬랙 알림 오류
+
+"슬랙 알림 전송 실패" 오류가 발생하는 경우:
+
+1. Vercel 설정에서 `SLACK_WEBHOOK_URL` 환경 변수가 올바르게 설정되었는지 확인합니다.
+2. 슬랙 웹훅 URL이 유효한지 확인합니다. 필요한 경우 슬랙 앱 설정에서 새 웹훅을 생성합니다.
