@@ -58,6 +58,7 @@ async function ensureFeedbackTable() {
 
 // 슬랙 웹훅으로 메시지 보내기
 async function sendSlackNotification(content: string, email: string | null) {
+  // 슬랙 알림이 성공하지 못해도 피드백 기능에 영향을 주지 않도록 try-catch로 감싸기
   try {
     const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
     const isDevEnv = process.env.NODE_ENV === 'development';
@@ -70,157 +71,49 @@ async function sendSlackNotification(content: string, email: string | null) {
     });
     
     if (!slackWebhookUrl) {
-      console.error('SLACK_WEBHOOK_URL 환경 변수가 설정되지 않았습니다.');
+      console.log('슬랙 웹훅 URL이 설정되지 않아 알림을 건너뜁니다.');
       return false;
     }
-    
+
     console.log('슬랙 알림 전송 시도:', { webhookExists: !!slackWebhookUrl });
     
-    // 이메일 주소 인코딩 (mailto: 링크용)
-    const encodedEmail = email ? encodeURIComponent(email) : '';
-    const emailSubject = encodeURIComponent('암기훈련소 피드백 답변');
-    const emailBody = encodeURIComponent(`안녕하세요,\n\n피드백에 대한 답변을 드립니다:\n\n원본 피드백: "${content}"\n\n`);
-    
-    // 슬랙 메시지 블록 구성
-    // 슬랙 Block Kit 형식을 any로 처리하여 타입 오류 방지
-    const messageBlocks: any[] = [
-      {
-        "type": "header",
-        "text": {
-          "type": "plain_text",
-          "text": "📫 새로운 피드백이 도착했습니다",
-          "emoji": true
-        }
-      },
-      {
-        "type": "section",
-        "text": {
-          "type": "mrkdwn",
-          "text": `*내용:*\n${content}`
-        }
-      }
-    ];
-    
-    // 이메일 정보와 답장 버튼 추가
-    if (email) {
-      messageBlocks.push({
-        "type": "section",
-        "text": {
-          "type": "mrkdwn",
-          "text": `*연락처:* ${email}`
-        },
-        "accessory": {
-          "type": "button",
-          "text": {
-            "type": "plain_text",
-            "text": "이메일로 답장하기",
-            "emoji": true
-          },
-          "url": `mailto:${encodedEmail}?subject=${emailSubject}&body=${emailBody}`,
-          "action_id": "reply_email"
-        }
-      });
-    }
-    
-    // 현재 시간 추가
-    messageBlocks.push({
-      "type": "context",
-      "elements": [
-        {
-          "type": "mrkdwn",
-          "text": `*접수 시간:* ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`
-        }
-      ]
-    });
-    
-    // 분리선 추가
-    messageBlocks.push({
-      "type": "divider"
-    });
-    
-    const payload = {
-      blocks: messageBlocks
-    };
-    
-    // 슬랙 웹훅 URL 처리 - Vercel 환경에서는 일부 URL이 작동하지 않을 수 있음
-    // 다양한 형식의 payload 테스트
-    let payloadString = JSON.stringify(payload);
-    
-    // 배포 환경이 아니면 표준 웹훅 호출
-    if (isDevEnv) {
-      console.log('개발 환경에서 표준 웹훅 호출 시도');
-      // 슬랙 웹훅 호출
+    // 기본 메시지 텍스트 만들기 (모든 형식에서 사용)
+    const messageText = `📫 새로운 피드백이 도착했습니다\n\n*내용:* ${content}\n*연락처:* ${email}\n*접수 시간:* ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`;
+
+    // 가장 단순한 형식으로 시도 (호환성 최대화)
+    try {
+      const simplePayload = { text: messageText };
+      console.log('단순 텍스트 형식으로 슬랙 알림 전송 시도');
+      
       const response = await fetch(slackWebhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: payloadString,
+        body: JSON.stringify(simplePayload),
       });
       
-      if (!response.ok) {
+      if (response.ok) {
+        console.log('슬랙 알림 전송 성공');
+        return true;
+      } else {
         const responseText = await response.text();
-        console.error('슬랙 응답 오류:', {
-          status: response.status,
+        console.log('슬랙 알림 전송 실패:', { 
+          status: response.status, 
           statusText: response.statusText,
-          responseText
+          responseText 
         });
-        throw new Error(`슬랙 알림 전송 실패: ${response.status} ${response.statusText}`);
       }
-    } else {
-      // 배포 환경에서는 단순 메시지 형식도 시도
-      console.log('프로덕션 환경에서 슬랙 알림 대체 방식 시도');
-      try {
-        // 1. 단순 텍스트 메시지 시도
-        const simplePayload = { text: `피드백: ${content}\n이메일: ${email}` };
-        const response1 = await fetch(slackWebhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(simplePayload),
-        });
-        
-        if (response1.ok) {
-          console.log('단순 텍스트 메시지로 슬랙 알림 전송 성공');
-          return true;
-        }
-        
-        console.log('단순 텍스트 메시지 실패, blocks 형식 시도');
-        
-        // 2. 기존 blocks 형식 시도
-        const response2 = await fetch(slackWebhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: payloadString,
-        });
-        
-        if (response2.ok) {
-          console.log('blocks 형식으로 슬랙 알림 전송 성공');
-          return true;
-        }
-        
-        const responseText = await response2.text();
-        console.error('모든 슬랙 알림 전송 시도 실패:', {
-          simpleStatus: response1.status, 
-          blocksStatus: response2.status,
-          responseText
-        });
-        
-        throw new Error(`슬랙 알림 전송 실패: ${response2.status}`);
-      } catch (webhookError) {
-        console.error('슬랙 웹훅 실행 오류:', webhookError);
-        throw webhookError;
-      }
+    } catch (e) {
+      console.log('슬랙 단순 메시지 전송 중 오류:', e);
     }
     
-    console.log('슬랙 알림 전송 성공');
-    return true;
+    // 첫 번째 시도가 실패하면 로그만 남기고 계속 진행
+    console.log('슬랙 알림 전송을 건너뛰고 계속 진행합니다.');
+    return false;
   } catch (error) {
-    console.error('슬랙 알림 전송 오류:', error);
-    // 에러를 무시하고 계속 진행
+    // 모든 슬랙 관련 오류는 여기서 처리하고 피드백 저장에 영향을 주지 않음
+    console.log('슬랙 알림 처리 중 오류가 발생했지만 무시하고 계속 진행합니다:', error);
     return false;
   }
 }
@@ -401,13 +294,12 @@ export async function POST(request: Request) {
       }
     }
     
-    // 슬랙 알림 전송 (비동기로 처리하지만 오류 발생 시 로그만 남기고 사용자에게는 성공 응답)
-    try {
-      await sendSlackNotification(content, email);
-    } catch (err) {
-      console.error('슬랙 알림 전송 중 오류 발생:', err);
-      // 슬랙 알림 실패는 사용자 응답에 영향을 주지 않음
-    }
+    // 슬랙 알림 전송 (실패해도 사용자 응답에 영향을 주지 않음)
+    // 여기서 await를 제거하여 비동기적으로 실행하고 응답은 즉시 반환
+    sendSlackNotification(content, email)
+      .catch(err => {
+        console.error('슬랙 알림 전송 중 오류가 발생했지만 무시하고 계속 진행합니다:', err);
+      });
     
     // 사용자에게 응답 - Supabase 저장 실패해도 사용자에게는 성공으로 응답
     return NextResponse.json({ 
