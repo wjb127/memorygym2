@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Script from 'next/script';
 import { AuthProvider } from "@/context/AuthContext";
+import { PremiumProvider } from "@/context/PremiumContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,7 +30,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko">
+    <html lang="ko" className={`${geistSans.variable} ${geistMono.variable}`}>
       <head>
         <meta name="vercel-toolbar-disabled" content="true" />
         {/* 아임포트 결제 SDK */}
@@ -38,13 +39,18 @@ export default function RootLayout({
           strategy="beforeInteractive"
         />
       </head>
-      <body
-        suppressHydrationWarning
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className="min-h-screen bg-[var(--background)]">
         <AuthProvider>
-          {children}
+          <PremiumProvider>
+            {children}
+          </PremiumProvider>
         </AuthProvider>
+        
+        {/* 카카오 애드핏 광고 스크립트 */}
+        <Script
+          src="https://t1.daumcdn.net/kas/static/ba.min.js"
+          async
+        />
       </body>
     </html>
   );
