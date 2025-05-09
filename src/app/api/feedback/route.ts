@@ -60,6 +60,14 @@ async function ensureFeedbackTable() {
 async function sendSlackNotification(content: string, email: string | null) {
   try {
     const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
+    const isDevEnv = process.env.NODE_ENV === 'development';
+    
+    console.log('환경 확인:', {
+      env: process.env.NODE_ENV,
+      isDev: isDevEnv,
+      hasSlackUrl: !!slackWebhookUrl,
+      urlLength: slackWebhookUrl?.length || 0
+    });
     
     if (!slackWebhookUrl) {
       console.error('SLACK_WEBHOOK_URL 환경 변수가 설정되지 않았습니다.');
@@ -134,23 +142,78 @@ async function sendSlackNotification(content: string, email: string | null) {
       blocks: messageBlocks
     };
     
-    // 슬랙 웹훅 호출
-    const response = await fetch(slackWebhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
+    // 슬랙 웹훅 URL 처리 - Vercel 환경에서는 일부 URL이 작동하지 않을 수 있음
+    // 다양한 형식의 payload 테스트
+    let payloadString = JSON.stringify(payload);
     
-    if (!response.ok) {
-      const responseText = await response.text();
-      console.error('슬랙 응답 오류:', {
-        status: response.status,
-        statusText: response.statusText,
-        responseText
+    // 배포 환경이 아니면 표준 웹훅 호출
+    if (isDevEnv) {
+      console.log('개발 환경에서 표준 웹훅 호출 시도');
+      // 슬랙 웹훅 호출
+      const response = await fetch(slackWebhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: payloadString,
       });
-      throw new Error(`슬랙 알림 전송 실패: ${response.status} ${response.statusText}`);
+      
+      if (!response.ok) {
+        const responseText = await response.text();
+        console.error('슬랙 응답 오류:', {
+          status: response.status,
+          statusText: response.statusText,
+          responseText
+        });
+        throw new Error(`슬랙 알림 전송 실패: ${response.status} ${response.statusText}`);
+      }
+    } else {
+      // 배포 환경에서는 단순 메시지 형식도 시도
+      console.log('프로덕션 환경에서 슬랙 알림 대체 방식 시도');
+      try {
+        // 1. 단순 텍스트 메시지 시도
+        const simplePayload = { text: `피드백: ${content}\n이메일: ${email}` };
+        const response1 = await fetch(slackWebhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(simplePayload),
+        });
+        
+        if (response1.ok) {
+          console.log('단순 텍스트 메시지로 슬랙 알림 전송 성공');
+          return true;
+        }
+        
+        console.log('단순 텍스트 메시지 실패, blocks 형식 시도');
+        
+        // 2. 기존 blocks 형식 시도
+        const response2 = await fetch(slackWebhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: payloadString,
+        });
+        
+        if (response2.ok) {
+          console.log('blocks 형식으로 슬랙 알림 전송 성공');
+          return true;
+        }
+        
+        const responseText = await response2.text();
+        console.error('모든 슬랙 알림 전송 시도 실패:', {
+          simpleStatus: response1.status, 
+          blocksStatus: response2.status,
+          responseText
+        });
+        
+        throw new Error(`슬랙 알림 전송 실패: ${response2.status}`);
+      } catch (webhookError) {
+        console.error('슬랙 웹훅 실행 오류:', webhookError);
+        throw webhookError;
+      }
     }
     
     console.log('슬랙 알림 전송 성공');
@@ -217,7 +280,9 @@ export async function POST(request: Request) {
     console.log('Supabase 설정 확인:', {
       url: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
       anonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      isDev: process.env.NODE_ENV === 'development'
+      isDev: process.env.NODE_ENV === 'development',
+      vercel: !!process.env.VERCEL,
+      slackUrlSet: !!process.env.SLACK_WEBHOOK_URL
     });
     
     // 테이블 확인 및 생성
