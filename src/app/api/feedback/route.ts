@@ -58,54 +58,86 @@ async function ensureFeedbackTable() {
 
 // 슬랙 웹훅으로 메시지 보내기
 async function sendSlackNotification(content: string, email: string | null) {
-  // 슬랙 알림이 성공하지 못해도 피드백 기능에 영향을 주지 않도록 try-catch로 감싸기
   try {
     const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
     const isDevEnv = process.env.NODE_ENV === 'development';
     
-    console.log('환경 확인:', {
+    console.log('## 슬랙 호출 환경 ##', {
       env: process.env.NODE_ENV,
-      isDev: isDevEnv,
+      isVercel: !!process.env.VERCEL,
+      vercelEnv: process.env.VERCEL_ENV,
+      region: process.env.VERCEL_REGION,
       hasSlackUrl: !!slackWebhookUrl,
-      urlLength: slackWebhookUrl?.length || 0
+      slackUrlLength: slackWebhookUrl?.length || 0,
+      slackUrlStart: slackWebhookUrl?.substring(0, 30) || '',
+      slackUrlEnd: slackWebhookUrl?.substring(slackWebhookUrl.length - 10) || ''
     });
     
     if (!slackWebhookUrl) {
       console.log('슬랙 웹훅 URL이 설정되지 않아 알림을 건너뜁니다.');
       return false;
     }
-
-    console.log('슬랙 알림 전송 시도:', { webhookExists: !!slackWebhookUrl });
+    
+    console.log('## 슬랙 알림 전송 시도 ##', { webhookExists: !!slackWebhookUrl });
     
     // 기본 메시지 텍스트 만들기 (모든 형식에서 사용)
     const messageText = `📫 새로운 피드백이 도착했습니다\n\n*내용:* ${content}\n*연락처:* ${email}\n*접수 시간:* ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`;
-
+    
+    // 페이로드 생성
+    const simplePayload = { text: messageText };
+    const payloadString = JSON.stringify(simplePayload);
+    
+    console.log('## 슬랙 요청 정보 ##', {
+      method: 'POST',
+      url: slackWebhookUrl,
+      headers: { 'Content-Type': 'application/json' },
+      bodyLength: payloadString.length,
+      bodyPreview: payloadString.substring(0, 50) + '...'
+    });
+    
     // 가장 단순한 형식으로 시도 (호환성 최대화)
     try {
-      const simplePayload = { text: messageText };
-      console.log('단순 텍스트 형식으로 슬랙 알림 전송 시도');
+      console.log('## 슬랙 요청 시작 ##');
+      const startTime = Date.now();
       
       const response = await fetch(slackWebhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(simplePayload),
+        body: payloadString,
+      });
+      
+      const endTime = Date.now();
+      const responseText = await response.text();
+      
+      console.log('## 슬랙 응답 정보 ##', { 
+        status: response.status, 
+        statusText: response.statusText,
+        responseText,
+        responseTime: `${endTime - startTime}ms`,
+        ok: response.ok,
+        headers: {
+          contentType: response.headers.get('content-type'),
+          server: response.headers.get('server')
+        }
       });
       
       if (response.ok) {
-        console.log('슬랙 알림 전송 성공');
+        console.log('## 슬랙 알림 전송 성공 ##');
         return true;
       } else {
-        const responseText = await response.text();
-        console.log('슬랙 알림 전송 실패:', { 
+        console.log('## 슬랙 알림 전송 실패 ##', { 
           status: response.status, 
           statusText: response.statusText,
           responseText 
         });
       }
     } catch (e) {
-      console.log('슬랙 단순 메시지 전송 중 오류:', e);
+      console.log('## 슬랙 전송 중 예외 발생 ##', {
+        error: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined
+      });
     }
     
     // 첫 번째 시도가 실패하면 로그만 남기고 계속 진행
@@ -113,7 +145,10 @@ async function sendSlackNotification(content: string, email: string | null) {
     return false;
   } catch (error) {
     // 모든 슬랙 관련 오류는 여기서 처리하고 피드백 저장에 영향을 주지 않음
-    console.log('슬랙 알림 처리 중 오류가 발생했지만 무시하고 계속 진행합니다:', error);
+    console.log('## 슬랙 알림 처리 중 최종 오류 발생 ##', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return false;
   }
 }
@@ -169,13 +204,30 @@ function saveLocalFeedback(content: string, email: string): { success: boolean, 
 
 export async function POST(request: Request) {
   try {
+    // 요청 정보 로깅
+    const requestId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+    
+    console.log(`## API 요청 시작 [${requestId}] ##`, {
+      url: request.url,
+      method: request.method,
+      headers: {
+        contentType: request.headers.get('content-type'),
+        userAgent: request.headers.get('user-agent'),
+        origin: request.headers.get('origin'),
+        referer: request.headers.get('referer')
+      }
+    });
+    
     // Supabase 연결 확인 및 환경 변수 로깅
-    console.log('Supabase 설정 확인:', {
+    console.log(`## 환경 정보 [${requestId}] ##`, {
       url: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
       anonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       isDev: process.env.NODE_ENV === 'development',
       vercel: !!process.env.VERCEL,
-      slackUrlSet: !!process.env.SLACK_WEBHOOK_URL
+      vercelEnv: process.env.VERCEL_ENV,
+      region: process.env.VERCEL_REGION,
+      slackUrlSet: !!process.env.SLACK_WEBHOOK_URL,
+      slackUrlLength: process.env.SLACK_WEBHOOK_URL?.length || 0
     });
     
     // 테이블 확인 및 생성
@@ -211,8 +263,14 @@ export async function POST(request: Request) {
       const requestData = await request.json();
       content = requestData.content || '';
       email = requestData.email || '';
+      
+      console.log(`## 요청 데이터 [${requestId}] ##`, {
+        contentLength: content.length,
+        contentPreview: content.substring(0, 30) + (content.length > 30 ? '...' : ''),
+        email
+      });
     } catch (parseError) {
-      console.error('요청 본문 파싱 오류:', parseError);
+      console.error(`## 요청 본문 파싱 오류 [${requestId}] ##`, parseError);
       return NextResponse.json(
         { error: '유효하지 않은 요청 형식입니다.' },
         { status: 400 }
@@ -301,6 +359,13 @@ export async function POST(request: Request) {
         console.error('슬랙 알림 전송 중 오류가 발생했지만 무시하고 계속 진행합니다:', err);
       });
     
+    // 응답 전에 최종 로그
+    console.log(`## API 요청 완료 [${requestId}] ##`, {
+      supabaseSuccess: !!savedData,
+      localBackup: !savedData,
+      responseStatus: 200
+    });
+
     // 사용자에게 응답 - Supabase 저장 실패해도 사용자에게는 성공으로 응답
     return NextResponse.json({ 
       success: true, 
@@ -309,7 +374,10 @@ export async function POST(request: Request) {
     });
     
   } catch (error) {
-    console.error('피드백 API 오류:', error);
+    console.error('## 피드백 API 처리 중 최종 오류 ##', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return NextResponse.json(
       { error: '서버 오류가 발생했습니다.' },
       { status: 500 }
