@@ -59,7 +59,8 @@ async function ensureFeedbackTable() {
 // 슬랙 웹훅으로 메시지 보내기
 async function sendSlackNotification(content: string, email: string | null) {
   try {
-    const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
+    // 새 환경 변수 이름 사용 (Vercel에서 캐시 문제 해결용)
+    const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL_NEW || process.env.SLACK_WEBHOOK_URL;
     const isDevEnv = process.env.NODE_ENV === 'development';
     
     console.log('## 슬랙 호출 환경 ##', {
@@ -70,7 +71,10 @@ async function sendSlackNotification(content: string, email: string | null) {
       hasSlackUrl: !!slackWebhookUrl,
       slackUrlLength: slackWebhookUrl?.length || 0,
       slackUrlStart: slackWebhookUrl?.substring(0, 30) || '',
-      slackUrlEnd: slackWebhookUrl?.substring(slackWebhookUrl.length - 10) || ''
+      slackUrlEnd: slackWebhookUrl?.substring(slackWebhookUrl?.length - 10 || 0) || '',
+      // 어떤 환경 변수가 사용되었는지 표시
+      usingNewVar: !!process.env.SLACK_WEBHOOK_URL_NEW,
+      usingOldVar: !!process.env.SLACK_WEBHOOK_URL && !process.env.SLACK_WEBHOOK_URL_NEW
     });
     
     if (!slackWebhookUrl) {
@@ -87,12 +91,19 @@ async function sendSlackNotification(content: string, email: string | null) {
     const simplePayload = { text: messageText };
     const payloadString = JSON.stringify(simplePayload);
     
+    // URL 직접 생성 방식 시도 - Vercel 환경에서 URL 캐싱 문제 해결
+    const webhookParts = slackWebhookUrl.match(/https:\/\/hooks.slack.com\/services\/([^\/]+)\/([^\/]+)\/(.+)/);
+    const directUrl = webhookParts 
+      ? `https://hooks.slack.com/services/${webhookParts[1]}/${webhookParts[2]}/${webhookParts[3]}`
+      : slackWebhookUrl;
+      
     console.log('## 슬랙 요청 정보 ##', {
       method: 'POST',
-      url: slackWebhookUrl,
+      url: directUrl,
       headers: { 'Content-Type': 'application/json' },
       bodyLength: payloadString.length,
-      bodyPreview: payloadString.substring(0, 50) + '...'
+      bodyPreview: payloadString.substring(0, 50) + '...',
+      urlReconstructed: !!webhookParts
     });
     
     // 가장 단순한 형식으로 시도 (호환성 최대화)
@@ -100,7 +111,7 @@ async function sendSlackNotification(content: string, email: string | null) {
       console.log('## 슬랙 요청 시작 ##');
       const startTime = Date.now();
       
-      const response = await fetch(slackWebhookUrl, {
+      const response = await fetch(directUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
