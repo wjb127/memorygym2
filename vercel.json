@@ -4,6 +4,6 @@
   "framework": "nextjs",
   "env": {
     "NEXT_PUBLIC_SHOW_VERCEL_TOOLBAR": "false",
-    "SLACK_WEBHOOK_URL": "${SLACK_WEBHOOK_URL}"
+    "SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/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"
   }
 } 
