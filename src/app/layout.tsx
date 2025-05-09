@@ -39,7 +39,7 @@ export default function RootLayout({
           strategy="beforeInteractive"
         />
       </head>
-      <body className="min-h-screen bg-[var(--background)]">
+      <body suppressHydrationWarning className="min-h-screen bg-[var(--background)]">
         <AuthProvider>
           <PremiumProvider>
             {children}

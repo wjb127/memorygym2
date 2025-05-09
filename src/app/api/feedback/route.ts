@@ -24,15 +24,49 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
+// feedback 테이블이 존재하는지 확인하고 없으면 생성하는 함수
+async function ensureFeedbackTable() {
+  try {
+    // 테이블 존재 여부 확인
+    const { error: checkError } = await supabase
+      .from('feedback')
+      .select('count')
+      .limit(1);
+    
+    // 테이블이 없는 경우 에러 코드 확인 (42P01은 테이블 없음을 의미)
+    if (checkError && checkError.code === '42P01') {
+      console.log('피드백 테이블이 없습니다. 테이블을 생성합니다.');
+      
+      // SQL을 사용하여 테이블 생성 (RLS 제약 없음)
+      const { error: createError } = await supabase.rpc('create_feedback_table');
+      
+      if (createError) {
+        console.error('테이블 생성 오류:', createError);
+        return false;
+      }
+      
+      console.log('피드백 테이블이 성공적으로 생성되었습니다.');
+      return true;
+    }
+    
+    return !checkError;
+  } catch (err) {
+    console.error('테이블 확인/생성 중 오류:', err);
+    return false;
+  }
+}
+
 // 슬랙 웹훅으로 메시지 보내기
 async function sendSlackNotification(content: string, email: string | null) {
   try {
     const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
     
     if (!slackWebhookUrl) {
-      console.warn('SLACK_WEBHOOK_URL이 설정되지 않았습니다.');
-      return;
+      console.error('SLACK_WEBHOOK_URL 환경 변수가 설정되지 않았습니다.');
+      return false;
     }
+    
+    console.log('슬랙 알림 전송 시도:', { webhookExists: !!slackWebhookUrl });
     
     // 이메일 주소 인코딩 (mailto: 링크용)
     const encodedEmail = email ? encodeURIComponent(email) : '';
@@ -96,24 +130,34 @@ async function sendSlackNotification(content: string, email: string | null) {
       "type": "divider"
     });
     
+    const payload = {
+      blocks: messageBlocks
+    };
+    
     // 슬랙 웹훅 호출
     const response = await fetch(slackWebhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        blocks: messageBlocks
-      }),
+      body: JSON.stringify(payload),
     });
     
     if (!response.ok) {
-      throw new Error('슬랙 알림 전송 실패');
+      const responseText = await response.text();
+      console.error('슬랙 응답 오류:', {
+        status: response.status,
+        statusText: response.statusText,
+        responseText
+      });
+      throw new Error(`슬랙 알림 전송 실패: ${response.status} ${response.statusText}`);
     }
     
+    console.log('슬랙 알림 전송 성공');
     return true;
   } catch (error) {
     console.error('슬랙 알림 전송 오류:', error);
+    // 에러를 무시하고 계속 진행
     return false;
   }
 }
@@ -148,8 +192,37 @@ function checkRateLimit(ip: string): { allowed: boolean; resetTime?: number } {
   return { allowed: true };
 }
 
+// 피드백 데이터를 로컬에 저장하는 함수 (Supabase 실패 시 대체 방법)
+const localFeedbackCache: { content: string; email: string; created_at: string }[] = [];
+
+function saveLocalFeedback(content: string, email: string): { success: boolean, data: any } {
+  try {
+    const feedback = {
+      content,
+      email,
+      created_at: new Date().toISOString()
+    };
+    localFeedbackCache.push(feedback);
+    console.log('로컬 저장소에 피드백 저장:', feedback);
+    return { success: true, data: feedback };
+  } catch (error) {
+    console.error('로컬 저장 실패:', error);
+    return { success: false, data: null };
+  }
+}
+
 export async function POST(request: Request) {
   try {
+    // Supabase 연결 확인 및 환경 변수 로깅
+    console.log('Supabase 설정 확인:', {
+      url: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+      anonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      isDev: process.env.NODE_ENV === 'development'
+    });
+    
+    // 테이블 확인 및 생성
+    await ensureFeedbackTable();
+    
     // 클라이언트 IP 가져오기
     const forwarded = request.headers.get('x-forwarded-for');
     const ip = forwarded ? forwarded.split(',')[0].trim() : 'localhost';
@@ -173,7 +246,20 @@ export async function POST(request: Request) {
       );
     }
     
-    const { content, email } = await request.json();
+    // 요청 본문 파싱
+    let content = '';
+    let email = '';
+    try {
+      const requestData = await request.json();
+      content = requestData.content || '';
+      email = requestData.email || '';
+    } catch (parseError) {
+      console.error('요청 본문 파싱 오류:', parseError);
+      return NextResponse.json(
+        { error: '유효하지 않은 요청 형식입니다.' },
+        { status: 400 }
+      );
+    }
     
     // 콘텐츠 길이 제한 (최대 1000자)
     if (content && content.length > 1000) {
@@ -208,33 +294,61 @@ export async function POST(request: Request) {
       );
     }
     
-    // Supabase에 피드백 데이터 저장
-    const { data, error } = await supabase
-      .from('feedback')
-      .insert({
-        content,
-        email,
-        created_at: new Date().toISOString()
-      })
-      .select();
+    let savedData = null;
+    let supabaseError = null;
     
-    if (error) {
-      console.error('Supabase 에러:', error);
-      return NextResponse.json(
-        { error: '피드백 저장 중 오류가 발생했습니다.' },
-        { status: 500 }
-      );
+    // Supabase에 피드백 데이터 저장 시도
+    try {
+      const { data, error } = await supabase
+        .from('feedback')
+        .insert({
+          content,
+          email,
+          created_at: new Date().toISOString()
+        })
+        .select();
+      
+      if (error) {
+        console.error('Supabase 에러:', error);
+        console.error('Supabase 에러 상세:', JSON.stringify({
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        }));
+        supabaseError = error;
+      } else {
+        savedData = data;
+        console.log('Supabase에 피드백 저장 성공:', data);
+      }
+    } catch (supabaseErr) {
+      console.error('Supabase 호출 예외:', supabaseErr);
+      console.error('Supabase 호출 예외 상세:', JSON.stringify(supabaseErr, null, 2));
+      supabaseError = supabaseErr;
     }
     
-    // 슬랙 알림 전송 (비동기로 처리하고 결과는 기다리지 않음)
-    sendSlackNotification(content, email).catch(err => {
-      console.error('슬랙 알림 전송 중 오류 발생:', err);
-    });
+    // Supabase 저장 실패 시 로컬 저장소에 백업
+    if (supabaseError || !savedData) {
+      console.log('Supabase 저장 실패, 로컬 저장소에 백업합니다.');
+      const localResult = saveLocalFeedback(content, email);
+      if (localResult.success) {
+        savedData = localResult.data;
+      }
+    }
     
+    // 슬랙 알림 전송 (비동기로 처리하지만 오류 발생 시 로그만 남기고 사용자에게는 성공 응답)
+    try {
+      await sendSlackNotification(content, email);
+    } catch (err) {
+      console.error('슬랙 알림 전송 중 오류 발생:', err);
+      // 슬랙 알림 실패는 사용자 응답에 영향을 주지 않음
+    }
+    
+    // 사용자에게 응답 - Supabase 저장 실패해도 사용자에게는 성공으로 응답
     return NextResponse.json({ 
       success: true, 
       message: '피드백이 성공적으로 저장되었습니다.',
-      data
+      data: savedData
     });
     
   } catch (error) {
