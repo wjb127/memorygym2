@@ -59,7 +59,7 @@ export default function RefundPolicyPage() {
           <h3 className="font-semibold mt-4 mb-2">가. 환불 신청 방법</h3>
           <ul className="list-disc ml-5 space-y-1">
             <li>서비스 내 '마이페이지' {'>'} '결제 내역' 메뉴에서 환불 신청 버튼을 클릭하여 신청</li>
-            <li>고객센터 이메일(support@memorygym.co.kr) 또는 전화(02-123-4567)로 환불 요청</li>
+            <li>고객센터 이메일(wjb127@naver.com) 또는 전화(010-5056-8463)로 환불 요청</li>
             <li>환불 신청 시 결제 정보와 환불 사유를 함께 제출해주셔야 합니다.</li>
           </ul>
 
