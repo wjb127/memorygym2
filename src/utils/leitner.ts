@@ -2,12 +2,16 @@ import { supabase, supabaseDummy } from './supabase';
 import { FlashCard, ReviewInterval, Subject } from './types';
 
 // 실제 Supabase 연결인지 더미 데이터를 사용할지 결정
-// 개발 환경이나 Supabase 설정이 없는 경우 더미 데이터 사용
-const db = process.env.NODE_ENV === 'production' && 
-           process.env.NEXT_PUBLIC_SUPABASE_URL && 
+const db = process.env.NEXT_PUBLIC_SUPABASE_URL && 
            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
          ? supabase 
          : supabaseDummy;
+
+// 오류 로깅 헬퍼 함수
+const logError = <T>(message: string, error: any, defaultReturn: T): T => {
+  console.error(`${message}:`, error);
+  return defaultReturn;
+};
 
 // 모든 과목 가져오기
 export async function getAllSubjects() {
@@ -17,15 +21,11 @@ export async function getAllSubjects() {
       .select('*')
       .order('name');
     
-    if (error) {
-      console.error('과목 가져오기 오류:', error);
-      return [];
-    }
+    if (error) return logError<Subject[]>('과목 가져오기 오류', error, []);
     
     return data as Subject[];
   } catch (error) {
-    console.error('과목 가져오기 예외:', error);
-    return [];
+    return logError<Subject[]>('과목 가져오기 예외', error, []);
   }
 }
 
@@ -38,15 +38,11 @@ export async function getSubjectById(subjectId: number) {
       .eq('id', subjectId)
       .single();
     
-    if (error) {
-      console.error('과목 가져오기 오류:', error);
-      return null;
-    }
+    if (error) return logError<Subject | null>('과목 가져오기 오류', error, null);
     
     return data as Subject;
   } catch (error) {
-    console.error('과목 가져오기 예외:', error);
-    return null;
+    return logError<Subject | null>('과목 가져오기 예외', error, null);
   }
 }
 
@@ -56,8 +52,7 @@ export async function addSubject(name: string, description?: string) {
     const { data: { user } } = await db.auth.getUser();
     
     if (!user) {
-      console.error('과목 추가 오류: 로그인이 필요합니다.');
-      return null;
+      return logError<Subject | null>('과목 추가 오류', '로그인이 필요합니다', null);
     }
 
     const { data, error } = await db
@@ -69,15 +64,11 @@ export async function addSubject(name: string, description?: string) {
       })
       .select();
     
-    if (error) {
-      console.error('과목 추가 오류:', error);
-      return null;
-    }
+    if (error) return logError<Subject | null>('과목 추가 오류', error, null);
     
     return data?.[0] as Subject;
   } catch (error) {
-    console.error('과목 추가 예외:', error);
-    return null;
+    return logError<Subject | null>('과목 추가 예외', error, null);
   }
 }
 
@@ -96,15 +87,11 @@ export async function getAllCards(subjectId?: number) {
     
     const { data, error } = await query.order('id');
     
-    if (error) {
-      console.error('카드 가져오기 오류:', error);
-      return [];
-    }
+    if (error) return logError<FlashCard[]>('카드 가져오기 오류', error, []);
     
     return data as FlashCard[];
   } catch (error) {
-    console.error('카드 가져오기 예외:', error);
-    return [];
+    return logError<FlashCard[]>('카드 가져오기 예외', error, []);
   }
 }
 
@@ -124,15 +111,11 @@ export async function getCardsByBox(boxNumber: number, subjectId?: number) {
     
     const { data, error } = await query.order('id');
     
-    if (error) {
-      console.error(`${boxNumber}번 상자 카드 가져오기 오류:`, error);
-      return [];
-    }
+    if (error) return logError<FlashCard[]>(`${boxNumber}번 상자 카드 가져오기 오류`, error, []);
     
     return data as FlashCard[];
   } catch (error) {
-    console.error(`${boxNumber}번 상자 카드 가져오기 예외:`, error);
-    return [];
+    return logError<FlashCard[]>(`${boxNumber}번 상자 카드 가져오기 예외`, error, []);
   }
 }
 
@@ -156,15 +139,11 @@ export async function getTodaysCards(subjectId?: number) {
       .order('box_number')
       .order('id');
     
-    if (error) {
-      console.error('오늘의 카드 가져오기 오류:', error);
-      return [];
-    }
+    if (error) return logError<FlashCard[]>('오늘의 카드 가져오기 오류', error, []);
     
     return data as FlashCard[];
   } catch (error) {
-    console.error('오늘의 카드 가져오기 예외:', error);
-    return [];
+    return logError<FlashCard[]>('오늘의 카드 가져오기 예외', error, []);
   }
 }
 
@@ -182,15 +161,11 @@ export async function addCard(front: string, back: string, subjectId: number = 1
       })
       .select();
     
-    if (error) {
-      console.error('카드 추가 오류:', error);
-      return null;
-    }
+    if (error) return logError<FlashCard | null>('카드 추가 오류', error, null);
     
     return data?.[0] as FlashCard;
   } catch (error) {
-    console.error('카드 추가 예외:', error);
-    return null;
+    return logError<FlashCard | null>('카드 추가 예외', error, null);
   }
 }
 
@@ -204,10 +179,7 @@ export async function updateCardBox(cardId: number, isCorrect: boolean) {
       .eq('id', cardId)
       .single();
     
-    if (cardError) {
-      console.error('카드 정보 가져오기 오류:', cardError);
-      return null;
-    }
+    if (cardError) return logError<FlashCard | null>('카드 정보 가져오기 오류', cardError, null);
     
     const card = cardData as FlashCard;
     let newBoxNumber = card.box_number;
@@ -241,15 +213,11 @@ export async function updateCardBox(cardId: number, isCorrect: boolean) {
       .eq('id', cardId)
       .select();
     
-    if (error) {
-      console.error('카드 업데이트 오류:', error);
-      return null;
-    }
+    if (error) return logError<FlashCard | null>('카드 업데이트 오류', error, null);
     
     return data?.[0] as FlashCard;
   } catch (error) {
-    console.error('카드 업데이트 예외:', error);
-    return null;
+    return logError<FlashCard | null>('카드 업데이트 예외', error, null);
   }
 }
 
@@ -261,15 +229,11 @@ export async function deleteCard(cardId: number) {
       .delete()
       .eq('id', cardId);
     
-    if (error) {
-      console.error('카드 삭제 오류:', error);
-      return false;
-    }
+    if (error) return logError<boolean>('카드 삭제 오류', error, false);
     
     return true;
   } catch (error) {
-    console.error('카드 삭제 예외:', error);
-    return false;
+    return logError<boolean>('카드 삭제 예외', error, false);
   }
 }
 
@@ -286,15 +250,11 @@ export async function updateCard(card: Partial<FlashCard>) {
       .eq('id', card.id)
       .select();
     
-    if (error) {
-      console.error('카드 내용 수정 오류:', error);
-      return null;
-    }
+    if (error) return logError<FlashCard | null>('카드 내용 수정 오류', error, null);
     
     return data?.[0] as FlashCard;
   } catch (error) {
-    console.error('카드 내용 수정 예외:', error);
-    return null;
+    return logError<FlashCard | null>('카드 내용 수정 예외', error, null);
   }
 }
 
@@ -317,14 +277,10 @@ export async function searchCards(searchText: string, subjectId?: number): Promi
     
     const { data, error } = await query.order('box_number', { ascending: true });
     
-    if (error) {
-      console.error('검색 오류:', error);
-      return [];
-    }
+    if (error) return logError<FlashCard[]>('검색 오류', error, []);
     
     return data as FlashCard[];
   } catch (error) {
-    console.error('검색 처리 예외:', error);
-    return [];
+    return logError<FlashCard[]>('검색 처리 예외', error, []);
   }
 } 

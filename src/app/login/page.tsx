@@ -16,7 +16,6 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const redirectedFrom = searchParams.get('redirectedFrom');
   const errorParam = searchParams.get('error');
-  const authSuccess = searchParams.get('auth_success');
   
   // URL 파라미터로 전달된 오류 처리
   useEffect(() => {
@@ -27,15 +26,6 @@ function LoginForm() {
           break;
         case 'exchange_error':
           setError('소셜 로그인 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
-          break;
-        case 'session_error':
-          setError('세션 생성 중 오류가 발생했습니다. 다시 시도해주세요.');
-          break;
-        case 'no_session':
-          setError('로그인 세션을 생성할 수 없습니다. 다른 방법으로 로그인해보세요.');
-          break;
-        case 'no_code':
-          setError('인증 코드가 없습니다. 다시 로그인해주세요.');
           break;
         default:
           setError('로그인 중 오류가 발생했습니다. 다시 시도해주세요.');
@@ -51,14 +41,6 @@ function LoginForm() {
     }
   }, [error]);
   
-  // 인증 성공 파라미터가 있으면 리다이렉트
-  useEffect(() => {
-    if (authSuccess === 'true') {
-      console.log('인증 성공 파라미터 감지, 세션 확인 시도');
-      checkAndRedirect();
-    }
-  }, [authSuccess]);
-  
   // 이미 로그인된 상태인지 확인
   useEffect(() => {
     checkAndRedirect();
@@ -70,19 +52,11 @@ function LoginForm() {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session) {
-        console.log('이미 로그인된 상태, 리다이렉트');
-        console.log('세션 사용자:', session.user.email);
-        
         // 주소 구성
         const redirectTo = redirectedFrom || '/';
         
-        // Next.js router를 통한 리다이렉트
-        router.push(redirectTo);
-        
-        // 페이지 전환이 발생하지 않을 경우를 대비해 강제 리다이렉트 추가 
-        setTimeout(() => {
-          window.location.href = redirectTo;
-        }, 500);
+        // 리다이렉트
+        window.location.href = redirectTo;
       }
     } catch (err) {
       console.error('세션 확인 오류:', err);
@@ -103,9 +77,6 @@ function LoginForm() {
       
       const supabase = createClient();
       
-      // 로그인 전 쿠키 확인
-      console.log('로그인 전 쿠키:', document.cookie);
-      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -113,26 +84,8 @@ function LoginForm() {
       
       if (error) throw error;
       
-      console.log('로그인 성공, 리다이렉트 대상:', redirectedFrom || '/');
-      console.log('사용자 정보:', data.user ? `ID: ${data.user.id}, 이메일: ${data.user.email}` : '사용자 정보 없음');
-      
-      // 세션 설정 확인
-      const { data: sessionData } = await supabase.auth.getSession();
-      console.log('세션 설정 확인:', sessionData.session ? '세션 있음' : '세션 없음');
-      
-      // 로그인 후 쿠키 확인
-      console.log('로그인 후 쿠키:', document.cookie);
-      
-      // 세션이 설정되도록 약간의 지연 추가
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
       // 로그인 성공 시 리다이렉트
-      if (redirectedFrom) {
-        router.push(redirectedFrom);
-      } else {
-        router.push('/');
-      }
-      router.refresh();
+      window.location.href = redirectedFrom || '/';
     } catch (err: any) {
       console.error('로그인 오류:', err);
       

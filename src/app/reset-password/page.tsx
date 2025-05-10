@@ -41,7 +41,6 @@ export default function ResetPassword() {
         router.push('/login');
       }, 3000);
     } catch (err: any) {
-      console.error('비밀번호 재설정 오류:', err);
       setMessage({ 
         type: 'error', 
         text: err.message || '비밀번호 재설정 이메일 전송 중 오류가 발생했습니다.' 
