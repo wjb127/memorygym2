@@ -53,11 +53,19 @@ export async function getSubjectById(subjectId: number) {
 // 새 과목 추가하기
 export async function addSubject(name: string, description?: string) {
   try {
+    const { data: { user } } = await db.auth.getUser();
+    
+    if (!user) {
+      console.error('과목 추가 오류: 로그인이 필요합니다.');
+      return null;
+    }
+
     const { data, error } = await db
       .from('subjects')
       .insert({
         name,
-        description
+        description,
+        user_id: user.id
       })
       .select();
     

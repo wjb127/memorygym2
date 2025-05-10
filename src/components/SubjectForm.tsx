@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { addSubject } from '../utils/leitner';
 import { usePremium } from '@/context/PremiumContext';
+import { useAuth } from '@/context/AuthContext';
 
 interface SubjectFormProps {
   onSubjectAdded?: () => void;
@@ -17,6 +18,7 @@ export default function SubjectForm({ onSubjectAdded }: SubjectFormProps) {
   
   // 프리미엄 상태 확인
   const { canAddSubject, isPremium, currentPlan, totalSubjectsCount } = usePremium();
+  const { user } = useAuth();
 
   const resetForm = () => {
     setName('');
@@ -27,6 +29,12 @@ export default function SubjectForm({ onSubjectAdded }: SubjectFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!user) {
+      setSubmitStatus('error');
+      setSubmitMessage('과목을 추가하려면 로그인이 필요합니다.');
+      return;
+    }
 
     if (!name.trim()) {
       setSubmitStatus('error');
