@@ -73,11 +73,16 @@ function LoginForm() {
         console.log('이미 로그인된 상태, 리다이렉트');
         console.log('세션 사용자:', session.user.email);
         
-        if (redirectedFrom) {
-          router.push(redirectedFrom);
-        } else {
-          router.push('/');
-        }
+        // 주소 구성
+        const redirectTo = redirectedFrom || '/';
+        
+        // Next.js router를 통한 리다이렉트
+        router.push(redirectTo);
+        
+        // 페이지 전환이 발생하지 않을 경우를 대비해 강제 리다이렉트 추가 
+        setTimeout(() => {
+          window.location.href = redirectTo;
+        }, 500);
       }
     } catch (err) {
       console.error('세션 확인 오류:', err);
