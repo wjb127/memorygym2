@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const supabase = createClientBrowser();
       
       // Supabase 세션 로그아웃
-      const { error } = await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut({ scope: 'global' });
       
       if (error) {
         console.error('로그아웃 오류:', error);
@@ -75,16 +75,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setSession(null);
       
-      // 쿠키 제거를 위한 추가 처리
       // Supabase 프로젝트 ref 추출
       const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL?.split('.')[0]?.split('https://')[1];
       
-      // 관련 쿠키 모두 제거
-      document.cookie = `sb-${projectRef}-auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax;`;
-      document.cookie = `sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax;`;
-      document.cookie = `sb-refresh-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax;`;
+      // 모든 관련 쿠키 삭제 (path와 도메인 옵션 다양하게 시도)
+      const cookieOptions = [
+        { path: '/', domain: '' },
+        { path: '/', domain: window.location.hostname }
+      ];
       
-      console.log('로그아웃 완료, 세션 및 쿠키 제거됨');
+      const cookiesToClear = [
+        `sb-${projectRef}-auth-token`,
+        `sb-access-token`,
+        `sb-refresh-token`,
+        `supabase-auth-token`,
+        `__client-auth-token`,
+        `__supabase_auth_token`
+      ];
+      
+      // 모든 옵션 조합으로 쿠키 삭제 시도
+      cookieOptions.forEach(option => {
+        cookiesToClear.forEach(cookieName => {
+          document.cookie = `${cookieName}=; ${option.path ? `path=${option.path};` : ''} ${option.domain ? `domain=${option.domain};` : ''} expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax;`;
+        });
+      });
+      
+      // 모든 로컬 스토리지 및 세션 스토리지 Supabase 관련 항목 삭제
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('supabase') || key.includes('sb-'))) {
+          localStorage.removeItem(key);
+        }
+      }
+      
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && (key.includes('supabase') || key.includes('sb-'))) {
+          sessionStorage.removeItem(key);
+        }
+      }
+      
+      console.log('로그아웃 완료, 모든 세션 및 쿠키 제거됨');
+      
+      // 페이지 완전 새로고침을 통해 상태 초기화
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 100);
     } catch (err) {
       console.error('로그아웃 중 오류 발생:', err);
     }
