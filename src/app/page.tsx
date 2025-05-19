@@ -5,27 +5,28 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import StudySession from "../components/StudySession";
 import AddCardForm from "../components/AddCardForm";
-import BoxManager from "../components/BoxManager";
+import QuizManager from "../components/QuizManager";
 import SubjectManager from "../components/SubjectManager";
 import TabLayout from "../components/TabLayout";
 import FeedbackButton from "../components/FeedbackButton";
-import { createClientBrowser } from '@/utils/supabase';
-import { useAuth } from '@/context/AuthContext';
+import { useSession, signOut as nextAuthSignOut } from "next-auth/react";
 
 export default function Home() {
   const router = useRouter();
-  const { user, isLoading, signOut } = useAuth();
+  const { data: session, status } = useSession();
+  const isLoading = status === 'loading';
+  const user = session?.user;
 
   // 새로고침 핸들러
   const handleCardAdded = () => {
-    // 카드가 추가된 후 페이지 새로고침
+    // 퀴즈가 추가된 후 페이지 새로고침
     router.refresh();
   };
 
   // 로그아웃 핸들러
   const handleLogout = async () => {
     try {
-      await signOut();
+      await nextAuthSignOut();
     } catch (error) {
       console.error('로그아웃 처리 중 오류:', error);
     }
@@ -40,13 +41,13 @@ export default function Home() {
     },
     {
       id: 'add',
-      label: <><span className="hidden sm:inline">카드추가</span><span className="sm:hidden">추가</span></>,
+      label: <><span className="hidden sm:inline">퀴즈추가</span><span className="sm:hidden">추가</span></>,
       content: <AddCardForm onCardAdded={handleCardAdded} />
     },
     {
       id: 'manage',
-      label: <><span className="hidden sm:inline">카드관리</span><span className="sm:hidden">관리</span></>,
-      content: <BoxManager />
+      label: <><span className="hidden sm:inline">퀴즈관리</span><span className="sm:hidden">관리</span></>,
+      content: <QuizManager />
     },
     {
       id: 'subjects',

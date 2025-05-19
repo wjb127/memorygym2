@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getCardsByBox, updateCardBox } from '../utils/leitner';
-import { FlashCard as FlashCardType, BOX_NAMES } from '../utils/types';
-import FlashCard from './FlashCard';
+import { FlashQuiz as FlashQuizType, BOX_NAMES } from '../utils/types';
+import FlashQuiz from './FlashQuiz';
 import SubjectSelector from './SubjectSelector';
 
 // 상자 번호에 따른 이모지 반환 함수
@@ -13,15 +13,15 @@ const getBoxEmoji = (boxNumber: number): string => {
 };
 
 export default function StudySession() {
-  const [cards, setCards] = useState<FlashCardType[]>([]);
-  const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [quizzes, setQuizzes] = useState<FlashQuizType[]>([]);
+  const [currentQuizIndex, setCurrentQuizIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [stats, setStats] = useState({ correct: 0, incorrect: 0 });
   const [selectedBox, setSelectedBox] = useState<number | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
   const [studyStarted, setStudyStarted] = useState(false);
-  // 각 상자별 카드 수를 추적하는 상태 추가
+  // 각 훈련소별 퀴즈 수를 추적하는 상태 추가
   const [boxCounts, setBoxCounts] = useState<Record<number, number>>({
     1: 0,
     2: 0,
@@ -30,16 +30,18 @@ export default function StudySession() {
     5: 0,
   });
 
-  // 상자 번호나 과목이 변경되거나 학습이 재시작될 때 카드 새로 로드
+  // 훈련소 번호나 과목이 변경되거나 학습이 재시작될 때 퀴즈 새로 로드
   useEffect(() => {
     if (studyStarted && selectedBox !== null) {
-      loadCardsByBox(selectedBox, selectedSubject);
+      loadQuizzesByBox(selectedBox, selectedSubject);
     }
   }, [selectedBox, selectedSubject, studyStarted]);
 
-  // 상자별 카드 수 업데이트 함수
+  // 훈련소별 퀴즈 수 업데이트 함수
   const updateBoxCounts = useCallback(async () => {
     try {
+      console.log('[StudySession] 훈련소별 퀴즈 수 업데이트 시작');
+      
       const counts: Record<number, number> = {
         1: 0,
         2: 0,
@@ -48,42 +50,66 @@ export default function StudySession() {
         5: 0,
       };
       
-      // 각 상자의 카드 개수 가져오기
+      // 각 훈련소의 퀴즈 개수 가져오기
       for (let box = 1; box <= 5; box++) {
-        const boxCards = await getCardsByBox(box, selectedSubject || undefined);
-        counts[box] = boxCards.length;
+        try {
+          console.log(`[StudySession] ${box}번 훈련소 퀴즈 수 조회 중...`);
+          const boxQuizzes = await getCardsByBox(box, selectedSubject || undefined);
+          counts[box] = Array.isArray(boxQuizzes) ? boxQuizzes.length : 0;
+          console.log(`[StudySession] ${box}번 훈련소 퀴즈 수: ${counts[box]}개`);
+        } catch (boxError) {
+          console.error(`[StudySession] ${box}번 훈련소 퀴즈 수 조회 오류:`, boxError);
+          // 오류가 발생해도 다음 훈련소 처리 계속 진행
+          counts[box] = 0;
+        }
       }
       
+      console.log('[StudySession] 훈련소별 퀴즈 수 업데이트 완료:', counts);
       setBoxCounts(counts);
     } catch (error) {
-      console.error('상자별 카드 수 업데이트 오류:', error);
+      console.error('[StudySession] 훈련소별 퀴즈 수 업데이트 오류:', error);
+      // 오류 발생 시 기존 상태 유지
     }
   }, [selectedSubject]);
 
-  // 과목이 변경되면 상자별 카드 수 업데이트
+  // 과목이 변경되면 훈련소별 퀴즈 수 업데이트
   useEffect(() => {
     updateBoxCounts();
   }, [updateBoxCounts]);
 
-  // 특정 상자의 카드 로드 (과목별 필터링 지원)
-  const loadCardsByBox = async (boxNumber: number, subjectId: number | null) => {
+  // 특정 훈련소의 퀴즈 로드 (과목별 필터링 지원)
+  const loadQuizzesByBox = async (boxNumber: number, subjectId: number | null) => {
     try {
       setLoading(true);
-      const boxCards = await getCardsByBox(boxNumber, subjectId || undefined);
-      setCards(boxCards);
-      setCurrentCardIndex(0);
-      setCompleted(boxCards.length === 0);
+      console.log(`[StudySession] ${boxNumber}번 훈련소 퀴즈 로드 시작, 과목 ID: ${subjectId || '전체'}`);
+      
+      const boxQuizzes = await getCardsByBox(boxNumber, subjectId || undefined);
+      
+      if (!Array.isArray(boxQuizzes)) {
+        console.error(`[StudySession] ${boxNumber}번 훈련소 퀴즈 로드 실패: 배열이 아닌 값 반환됨`);
+        setQuizzes([]);
+        setCompleted(true);
+        return;
+      }
+      
+      console.log(`[StudySession] ${boxNumber}번 훈련소 퀴즈 ${boxQuizzes.length}개 로드됨`);
+      setQuizzes(boxQuizzes);
+      setCurrentQuizIndex(0);
+      setCompleted(boxQuizzes.length === 0);
       setStats({ correct: 0, incorrect: 0 });
     } catch (error) {
-      console.error(`${boxNumber}번 상자 카드 로드 오류:`, error);
+      console.error(`[StudySession] ${boxNumber}번 훈련소 퀴즈 로드 오류:`, error);
+      // 오류 발생 시 빈 배열로 설정
+      setQuizzes([]);
+      setCompleted(true);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAnswer = async (cardId: number, isCorrect: boolean) => {
+  const handleAnswer = async (quizId: number, isCorrect: boolean) => {
     try {
-      await updateCardBox(cardId, isCorrect);
+      await updateCardBox(quizId, isCorrect);
       
       // 통계 업데이트
       setStats(prev => ({
@@ -91,9 +117,9 @@ export default function StudySession() {
         incorrect: prev.incorrect + (isCorrect ? 0 : 1)
       }));
       
-      // 다음 카드 또는 완료로 이동
-      if (currentCardIndex < cards.length - 1) {
-        setCurrentCardIndex(prevIndex => prevIndex + 1);
+      // 다음 퀴즈 또는 완료로 이동
+      if (currentQuizIndex < quizzes.length - 1) {
+        setCurrentQuizIndex(prevIndex => prevIndex + 1);
       } else {
         setCompleted(true);
       }
@@ -104,8 +130,8 @@ export default function StudySession() {
 
   const resetStudy = () => {
     setSelectedBox(null);
-    setCards([]);
-    setCurrentCardIndex(0);
+    setQuizzes([]);
+    setCurrentQuizIndex(0);
     setCompleted(false);
     setStats({ correct: 0, incorrect: 0 });
     setStudyStarted(false);
@@ -120,9 +146,9 @@ export default function StudySession() {
   const handleSubjectChange = (subjectId: number | null) => {
     setSelectedSubject(subjectId);
     
-    // 이미 학습이 시작된 경우, 새로운 과목의 카드를 로드
+    // 이미 학습이 시작된 경우, 새로운 과목의 퀴즈를 로드
     if (studyStarted && selectedBox !== null) {
-      loadCardsByBox(selectedBox, subjectId);
+      loadQuizzesByBox(selectedBox, subjectId);
     }
   };
 
@@ -141,7 +167,7 @@ export default function StudySession() {
         
         {selectedSubject !== null && (
           <div className="bg-[var(--neutral-100)] p-6 rounded-lg border border-[var(--neutral-300)] shadow-sm mb-6">
-            <h3 className="text-lg font-medium mb-4">상자를 선택하세요</h3>
+            <h3 className="text-lg font-medium mb-4">훈련소를 선택하세요</h3>
             
             <div className="space-y-3">
               {[1, 2, 3, 4, 5].map((boxNum) => (
@@ -153,13 +179,13 @@ export default function StudySession() {
                   <div className="flex items-center">
                     <span className="text-xl mr-3">{getBoxEmoji(boxNum)}</span>
                     <div>
-                      <div className="font-medium">상자 {boxNum}</div>
+                      <div className="font-medium">{boxNum}단계 훈련소</div>
                       <div className="text-sm text-[var(--neutral-700)]">{BOX_NAMES[boxNum as keyof typeof BOX_NAMES]}</div>
                     </div>
                   </div>
                   <div className="flex items-center">
                     <span className="px-2 py-1 bg-[var(--neutral-200)] rounded-full text-sm font-medium text-[var(--neutral-700)]">
-                      {boxCounts[boxNum]} 카드
+                      {boxCounts[boxNum]} 퀴즈
                     </span>
                     <span className="ml-2 text-[var(--neutral-700)]">→</span>
                   </div>
@@ -193,10 +219,10 @@ export default function StudySession() {
     return (
       <div className="text-center">
         <h2 className="text-2xl font-bold mb-4 bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] bg-clip-text text-transparent">
-          {getBoxEmoji(selectedBox || 0)} 트레이닝 완료!
+          {getBoxEmoji(selectedBox || 0)} {selectedBox}단계 훈련소 완료!
         </h2>
         
-        {cards.length > 0 ? (
+        {quizzes.length > 0 ? (
           <div className="mb-8">
             <p className="text-lg mb-4">트레이닝 결과:</p>
             
@@ -229,11 +255,11 @@ export default function StudySession() {
           <div className="p-6 mb-8 bg-[var(--neutral-200)] rounded-lg inline-block">
             <p className="text-lg">
               {selectedSubject 
-                ? `선택한 과목의 상자 ${selectedBox}에는 카드가 없습니다.`
-                : `상자 ${selectedBox}에는 카드가 없습니다.`}
+                ? `선택한 과목의 ${selectedBox}단계 훈련소에는 퀴즈가 없습니다.`
+                : `${selectedBox}단계 훈련소에는 퀴즈가 없습니다.`}
             </p>
             <p className="text-sm mt-2 text-[var(--neutral-700)]">
-              '카드추가' 탭에서 새로운 카드를 추가해보세요!
+              '퀴즈추가' 탭에서 새로운 퀴즈를 추가해보세요!
             </p>
           </div>
         )}
@@ -242,8 +268,8 @@ export default function StudySession() {
           <button
             onClick={() => {
               if (selectedBox !== null) {
-                // 같은 상자 다시 공부
-                loadCardsByBox(selectedBox, selectedSubject);
+                // 같은 훈련소 다시 공부
+                loadQuizzesByBox(selectedBox, selectedSubject);
               }
             }}
             className="px-4 py-3 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors shadow-md"
@@ -273,7 +299,7 @@ export default function StudySession() {
         
         <div className="text-center">
           <span className="font-medium">
-            {getBoxEmoji(selectedBox || 0)} 상자 {selectedBox}
+            {getBoxEmoji(selectedBox || 0)} {selectedBox}단계 훈련소
           </span>
           <div className="text-xs mt-1 text-[var(--neutral-700)]">
             {selectedSubject ? `과목 필터링 적용됨` : `과목 선택`}
@@ -281,14 +307,14 @@ export default function StudySession() {
         </div>
         
         <div className="text-sm text-[var(--neutral-700)]">
-          {currentCardIndex + 1} / {cards.length}
+          {currentQuizIndex + 1} / {quizzes.length}
         </div>
       </div>
       
       <div className="bg-[var(--neutral-100)] rounded-lg border border-[var(--neutral-300)] p-6 shadow-md">
-        {cards[currentCardIndex] && (
-          <FlashCard 
-            card={cards[currentCardIndex]} 
+        {quizzes[currentQuizIndex] && (
+          <FlashQuiz 
+            quiz={quizzes[currentQuizIndex]} 
             onAnswer={handleAnswer}
           />
         )}

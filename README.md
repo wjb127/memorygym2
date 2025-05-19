@@ -1,12 +1,12 @@
 # 암기훈련소 (MemoryTrainingCenter)
 
-두뇌 운동을 위한 플래시카드 학습 애플리케이션입니다. 라이트너 박스 시스템을 기반으로 효율적인 기억 훈련을 도와줍니다.
+두뇌 운동을 위한 플래시퀴즈 학습 애플리케이션입니다. 라이트너 박스 시스템을 기반으로 효율적인 기억 훈련을 도와줍니다.
 
 ## 주요 기능
 
 - 라이트너 박스 시스템을 이용한 체계적인 학습
-- 과목별 카드 관리
-- 플래시카드 추가, 수정, 삭제
+- 과목별 퀴즈 관리
+- 플래시퀴즈 추가, 수정, 삭제
 - 학습 상태 추적
 - 다양한 과목 지원
 - 사용자별 학습 진도 관리 (준비 중)
@@ -83,7 +83,7 @@ CREATE TABLE review_intervals (
   interval_days INTEGER NOT NULL
 );
 
--- 플래시카드 테이블 생성
+-- 플래시퀴즈 테이블 생성
 CREATE TABLE flashcards (
   id SERIAL PRIMARY KEY,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -96,7 +96,7 @@ CREATE TABLE flashcards (
   subject_id INTEGER REFERENCES subjects(id) ON DELETE CASCADE
 );
 
--- 사용자별 카드 테이블 생성 (사용자 인증 기능 확장 시 사용)
+-- 사용자별 퀴즈 테이블 생성 (사용자 인증 기능 확장 시 사용)
 CREATE TABLE user_cards (
   id SERIAL PRIMARY KEY,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -189,7 +189,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
 현재 애플리케이션에서 사용하는 테이블은 다음과 같습니다:
 
 - **subjects**: 과목 정보를 저장하는 테이블
-- **flashcards**: 플래시카드 정보를 저장하는 테이블
+- **flashcards**: 플래시퀴즈 정보를 저장하는 테이블
 - **review_intervals**: 각 라이트너 박스 별 복습 간격을 저장하는 테이블
 - **user_cards**: 사용자별 학습 진도를 저장하는 테이블 (사용자 인증 기능 구현 후 활성화 예정)
 
