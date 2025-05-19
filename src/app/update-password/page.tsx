@@ -49,13 +49,19 @@ export default function UpdatePassword() {
       setLoading(true);
       setMessage(null);
       
-      const supabase = createClient();
-      
-      const { error } = await supabase.auth.updateUser({
-        password
+      const response = await fetch('/api/auth/update-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password }),
       });
       
-      if (error) throw error;
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error);
+      }
       
       setMessage({ 
         type: 'success', 
