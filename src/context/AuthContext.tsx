@@ -5,7 +5,7 @@ import { Session, User } from '@supabase/supabase-js';
 import { createClient } from '@/utils/supabase-browser';
 
 // 인증 컨텍스트 타입 정의
-type AuthContextType = {
+export type AuthContextType = {
   user: User | null;
   session: Session | null;
   isLoading: boolean;

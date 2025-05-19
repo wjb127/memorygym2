@@ -71,7 +71,7 @@ export default function ResetPassword() {
           </div>
         )}
         
-        <form onSubmit={handleResetPassword} className="mt-8 space-y-6">
+        <form onSubmit={handleResetPassword} className="mt-8 space-y-6" role="form">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-[var(--neutral-700)]">
               이메일
