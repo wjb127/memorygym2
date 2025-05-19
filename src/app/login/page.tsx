@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, ChangeEvent, FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '@/utils/supabase-browser';
-import SocialLogin from '../../components/SocialLogin';
+import { signIn, useSession } from 'next-auth/react';
 
 // 검색 파라미터를 사용하는 컴포넌트
 function LoginForm() {
@@ -12,26 +11,39 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [timeoutMessage, setTimeoutMessage] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectedFrom = searchParams.get('redirectedFrom');
+  const redirectedFrom = searchParams.get('redirectedFrom') || '/';
+  const callbackUrl = searchParams.get('callbackUrl') || redirectedFrom;
   const errorParam = searchParams.get('error');
+  const timeoutParam = searchParams.get('timeout');
+  const { status } = useSession();
   
   // URL 파라미터로 전달된 오류 처리
   useEffect(() => {
     if (errorParam) {
       switch (errorParam) {
-        case 'auth_callback_error':
-          setError('인증 과정에서 오류가 발생했습니다. 다시 시도해주세요.');
+        case 'CredentialsSignin':
+          setError('이메일 또는 비밀번호가 올바르지 않습니다.');
           break;
-        case 'exchange_error':
+        case 'OAuthAccountNotLinked':
+          setError('이미 다른 방법으로 가입한 이메일입니다. 다른 로그인 방법을 사용해주세요.');
+          break;
+        case 'OAuthSignin':
+        case 'OAuthCallback':
           setError('소셜 로그인 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
           break;
         default:
           setError('로그인 중 오류가 발생했습니다. 다시 시도해주세요.');
       }
     }
-  }, [errorParam]);
+    
+    // 세션 타임아웃 체크
+    if (timeoutParam === 'true') {
+      setTimeoutMessage('장시간 활동이 없어 보안을 위해 자동 로그아웃되었습니다. 다시 로그인해 주세요.');
+    }
+  }, [errorParam, timeoutParam]);
   
   // 에러 메시지 초기화
   useEffect(() => {
@@ -41,29 +53,30 @@ function LoginForm() {
     }
   }, [error]);
   
+  // 타임아웃 메시지 초기화
+  useEffect(() => {
+    if (timeoutMessage) {
+      const timer = setTimeout(() => setTimeoutMessage(null), 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [timeoutMessage]);
+  
   // 이미 로그인된 상태인지 확인
   useEffect(() => {
-    checkAndRedirect();
-  }, []);
-  
-  const checkAndRedirect = async () => {
-    try {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session) {
-        // 주소 구성
-        const redirectTo = redirectedFrom || '/';
-        
-        // 리다이렉트
-        window.location.href = redirectTo;
-      }
-    } catch (err) {
-      console.error('세션 확인 오류:', err);
+    if (status === 'authenticated') {
+      router.push(callbackUrl || '/');
     }
+  }, [status, router, callbackUrl]);
+  
+  const handleEmailChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value);
   };
   
-  const handleLogin = async (e: React.FormEvent) => {
+  const handlePasswordChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value);
+  };
+  
+  const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
     if (!email || !password) {
@@ -75,30 +88,38 @@ function LoginForm() {
       setLoading(true);
       setError(null);
       
-      const supabase = createClient();
-      
-      const { data, error } = await supabase.auth.signInWithPassword({
+      // Next Auth 로그인 시도 (Supabase 로그인은 서버 측에서 처리됨)
+      const result = await signIn('credentials', {
         email,
         password,
+        redirect: false,
+        callbackUrl: callbackUrl || '/',
       });
       
-      if (error) throw error;
+      if (result?.error) {
+        setError(result.error || '이메일 또는 비밀번호가 올바르지 않습니다.');
+        return;
+      }
       
-      // 로그인 성공 시 리다이렉트
-      window.location.href = redirectedFrom || '/';
+      // 로그인 성공 후 리디렉션
+      router.refresh();
+      router.push(callbackUrl || '/');
     } catch (err: any) {
       console.error('로그인 오류:', err);
-      
-      // 특정 오류 메시지 처리
-      if (err.message?.includes('Invalid login')) {
-        setError('이메일 또는 비밀번호가 올바르지 않습니다.');
-      } else if (err.message?.includes('Email not confirmed')) {
-        setError('이메일 확인이 필요합니다. 이메일을 확인해주세요.');
-      } else {
-        setError(err.message || '로그인 중 오류가 발생했습니다. 이메일과 비밀번호를 확인해주세요.');
-      }
+      setError(err.message || '로그인 중 오류가 발생했습니다. 이메일과 비밀번호를 확인해주세요.');
     } finally {
       setLoading(false);
+    }
+  };
+  
+  const handleGoogleLogin = async () => {
+    try {
+      setLoading(true);
+      await signIn('google', { 
+        redirectTo: callbackUrl
+      });
+    } catch (error) {
+      console.error('구글 로그인 오류:', error);
     }
   };
   
@@ -112,6 +133,15 @@ function LoginForm() {
           <h1 className="text-2xl font-bold">로그인</h1>
           <p className="mt-2 text-[var(--neutral-700)]">암기훈련소에 다시 오신 것을 환영합니다!</p>
         </div>
+        
+        {timeoutMessage && (
+          <div className="bg-amber-50 text-amber-700 p-3 rounded-md text-sm border border-amber-200">
+            <div className="flex items-start">
+              <span className="mr-2 text-lg">⏰</span>
+              <span>{timeoutMessage}</span>
+            </div>
+          </div>
+        )}
         
         {error && (
           <div className="bg-red-50 text-red-500 p-3 rounded-md text-sm">
@@ -130,7 +160,7 @@ function LoginForm() {
               type="email"
               required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={handleEmailChange}
               className="mt-1 block w-full rounded-md border border-[var(--neutral-300)] p-2"
               placeholder="이메일 주소"
             />
@@ -146,7 +176,7 @@ function LoginForm() {
               type="password"
               required
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={handlePasswordChange}
               className="mt-1 block w-full rounded-md border border-[var(--neutral-300)] p-2"
               placeholder="비밀번호"
             />
@@ -193,7 +223,22 @@ function LoginForm() {
             </div>
           </div>
           
-          <SocialLogin redirectedFrom={redirectedFrom} />
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-3 bg-white border border-[var(--neutral-300)] p-2 rounded-md hover:bg-gray-50 transition-all disabled:opacity-50"
+            >
+              <img
+                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                alt="Google"
+                width={20}
+                height={20}
+              />
+              <span>{loading ? '처리 중...' : 'Google로 계속하기'}</span>
+            </button>
+          </div>
           
           <div className="mt-6 text-center text-sm">
             <p>

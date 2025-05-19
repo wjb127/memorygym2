@@ -2,8 +2,11 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Script from 'next/script';
-import { AuthProvider } from "@/context/AuthContext";
+import { NextAuthProvider } from "@/context/NextAuthProvider";
 import { PremiumProvider } from "@/context/PremiumContext";
+import { AuthProvider } from "@/context/AuthContext";
+import { CardProvider } from "@/context/CardContext";
+import SessionTimeoutWrapper from "@/components/SessionTimeoutWrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -40,11 +43,16 @@ export default function RootLayout({
         />
       </head>
       <body suppressHydrationWarning className="min-h-screen bg-[var(--background)]">
-        <AuthProvider>
-          <PremiumProvider>
-            {children}
-          </PremiumProvider>
-        </AuthProvider>
+        <NextAuthProvider>
+          <AuthProvider>
+            <PremiumProvider>
+              <CardProvider>
+                {children}
+                <SessionTimeoutWrapper />
+              </CardProvider>
+            </PremiumProvider>
+          </AuthProvider>
+        </NextAuthProvider>
         
         {/* 카카오 애드핏 광고 스크립트 */}
         <Script
