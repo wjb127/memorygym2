@@ -4,8 +4,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 
-const INACTIVITY_WARNING_TIME = 15 * 60 * 1000; // 15분
-const FINAL_TIMEOUT_TIME = 5 * 60 * 1000; // 추가 5분
+const INACTIVITY_WARNING_TIME = 105 * 60 * 1000; // 1시간 45분
+const FINAL_TIMEOUT_TIME = 15 * 60 * 1000; // 추가 15분
 
 export default function SessionTimeoutHandler() {
   const { data: session, status } = useSession();

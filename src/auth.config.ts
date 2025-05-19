@@ -19,10 +19,10 @@ export const authConfig = {
     error: "/login",
   },
   session: {
-    // 세션 만료 시간을 30분으로 설정 (1800초)
-    maxAge: 30 * 60,
+    // 세션 만료 시간을 2시간으로 설정 (7200초)
+    maxAge: 2 * 60 * 60,
     strategy: "jwt",
-    updateAge: 5 * 60, // 5분마다 세션 업데이트
+    updateAge: 15 * 60, // 15분마다 세션 업데이트
   },
   callbacks: {
     session({ session, token }) {
