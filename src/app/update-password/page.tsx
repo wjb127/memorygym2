@@ -98,7 +98,7 @@ export default function UpdatePassword() {
         )}
         
         {isAuthenticated && (
-          <form onSubmit={handleUpdatePassword} className="mt-8 space-y-6">
+          <form onSubmit={handleUpdatePassword} className="mt-8 space-y-6" role="form">
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-[var(--neutral-700)]">
                 새 비밀번호
