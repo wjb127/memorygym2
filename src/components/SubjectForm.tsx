@@ -55,23 +55,17 @@ export default function SubjectForm({ onSubjectAdded }: SubjectFormProps) {
 
       const result = await addSubject(name, description);
       
-      if (result) {
-        setSubmitStatus('success');
-        setSubmitMessage('과목이 성공적으로 추가되었습니다!');
-        setName('');
-        setDescription('');
-        
-        if (onSubjectAdded) {
-          onSubjectAdded();
-        }
-      } else {
-        setSubmitStatus('error');
-        setSubmitMessage('과목 추가 중 오류가 발생했습니다.');
+      setSubmitStatus('success');
+      setSubmitMessage('과목이 성공적으로 추가되었습니다!');
+      setName('');
+      setDescription('');
+      
+      if (onSubjectAdded) {
+        onSubjectAdded();
       }
     } catch (error) {
-      console.error('과목 추가 오류:', error);
       setSubmitStatus('error');
-      setSubmitMessage('과목 추가 중 오류가 발생했습니다.');
+      setSubmitMessage(error instanceof Error ? error.message : '과목 추가 중 오류가 발생했습니다.');
     } finally {
       setIsSubmitting(false);
     }

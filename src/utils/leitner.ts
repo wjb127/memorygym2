@@ -52,7 +52,7 @@ export async function addSubject(name: string, description?: string) {
     const { data: { user } } = await db.auth.getUser();
     
     if (!user) {
-      return logError<Subject | null>('과목 추가 오류', '로그인이 필요합니다', null);
+      throw new Error('로그인이 필요합니다');
     }
 
     const { data, error } = await db
@@ -64,11 +64,16 @@ export async function addSubject(name: string, description?: string) {
       })
       .select();
     
-    if (error) return logError<Subject | null>('과목 추가 오류', error, null);
+    if (error) {
+      throw new Error(error.message);
+    }
     
     return data?.[0] as Subject;
   } catch (error) {
-    return logError<Subject | null>('과목 추가 예외', error, null);
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('과목 추가 중 오류가 발생했습니다');
   }
 }
 
