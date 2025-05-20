@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/utils/supabase';
+import { supabase } from '@/utils/supabase-client';
 
 // 포트원 V2 API를 통한 결제 정보 조회 함수
 async function getPortOnePaymentData(paymentId: string) {
