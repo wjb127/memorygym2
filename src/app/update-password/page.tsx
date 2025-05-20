@@ -11,6 +11,7 @@ function logDebug(message: string, data?: any) {
 }
 
 export default function UpdatePassword() {
+  const [currentPassword, setCurrentPassword] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -40,6 +41,12 @@ export default function UpdatePassword() {
     e.preventDefault();
     logDebug('비밀번호 변경 요청 시작');
     
+    if (!currentPassword) {
+      logDebug('유효성 검사 실패: 현재 비밀번호 누락');
+      setMessage({ type: 'error', text: '현재 비밀번호를 입력해주세요.' });
+      return;
+    }
+    
     if (password.length < 8) {
       logDebug('유효성 검사 실패: 비밀번호 길이 부족', { length: password.length });
       setMessage({ type: 'error', text: '비밀번호는 8자 이상이어야 합니다.' });
@@ -62,7 +69,7 @@ export default function UpdatePassword() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ currentPassword, password }),
       });
       
       logDebug('API 응답 수신', { status: response.status });
@@ -123,6 +130,22 @@ export default function UpdatePassword() {
         
         {status === 'authenticated' && (
           <form onSubmit={handleUpdatePassword} className="mt-8 space-y-6" role="form">
+            <div>
+              <label htmlFor="currentPassword" className="block text-sm font-medium text-[var(--neutral-700)]">
+                현재 비밀번호
+              </label>
+              <input
+                id="currentPassword"
+                name="currentPassword"
+                type="password"
+                required
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="mt-1 block w-full rounded-md border border-[var(--neutral-300)] p-2"
+                placeholder="현재 사용 중인 비밀번호"
+              />
+            </div>
+            
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-[var(--neutral-700)]">
                 새 비밀번호
