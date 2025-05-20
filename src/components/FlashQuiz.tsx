@@ -16,7 +16,7 @@ export default function FlashQuiz({ quiz, onAnswer }: FlashQuizProps) {
   const [readyForNext, setReadyForNext] = useState(false);
   // 엔터 키 처리를 위한 디바운스 변수
   const lastEnterPressTimeRef = useRef<number>(0);
-  const enterCooldownMs = 1000; // 엔터 키 입력 간 최소 간격(ms)
+  const enterCooldownMs = 300; // 엔터 키 입력 간 최소 간격(ms)
 
   // 컴포넌트가 마운트될 때와 quiz가 변경될 때마다 상태 초기화
   useEffect(() => {
