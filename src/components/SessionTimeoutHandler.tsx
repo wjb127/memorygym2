@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 
@@ -12,14 +12,69 @@ export default function SessionTimeoutHandler() {
   const router = useRouter();
   const [showWarning, setShowWarning] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(FINAL_TIMEOUT_TIME / 1000);
-  const [warningTimer, setWarningTimer] = useState<NodeJS.Timeout | null>(null);
-  const [logoutTimer, setLogoutTimer] = useState<NodeJS.Timeout | null>(null);
+  
+  // 타이머를 ref로 관리하여 의존성 배열에 추가하지 않도록 함
+  const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const logoutTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // 로그아웃 카운트다운 시작
+  const startLogoutCountdown = useCallback(() => {
+    setSecondsLeft(FINAL_TIMEOUT_TIME / 1000);
+    
+    // 기존 인터벌 정리
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+    }
+    
+    // 1초마다 카운트다운
+    const countdownInterval = setInterval(() => {
+      setSecondsLeft(prev => {
+        if (prev <= 1) {
+          if (countdownIntervalRef.current) {
+            clearInterval(countdownIntervalRef.current);
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    countdownIntervalRef.current = countdownInterval;
+    
+    // 최종 로그아웃 타이머 설정
+    if (logoutTimerRef.current) {
+      clearTimeout(logoutTimerRef.current);
+    }
+    
+    const newLogoutTimer = setTimeout(() => {
+      console.log('세션 타임아웃: 자동 로그아웃');
+      // 로그아웃 실행
+      signOut({ redirect: false }).then(() => {
+        router.push('/login?timeout=true');
+      });
+    }, FINAL_TIMEOUT_TIME);
+    
+    logoutTimerRef.current = newLogoutTimer;
+  }, [router]);
   
   // 활동 감지 시 호출될 함수
   const resetTimers = useCallback(() => {
     // 이미 활성화된 타이머가 있으면 제거
-    if (warningTimer) clearTimeout(warningTimer);
-    if (logoutTimer) clearTimeout(logoutTimer);
+    if (warningTimerRef.current) {
+      clearTimeout(warningTimerRef.current);
+      warningTimerRef.current = null;
+    }
+    
+    if (logoutTimerRef.current) {
+      clearTimeout(logoutTimerRef.current);
+      logoutTimerRef.current = null;
+    }
+    
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
     
     // 경고창이 표시 중이었다면 닫기
     if (showWarning) {
@@ -34,41 +89,9 @@ export default function SessionTimeoutHandler() {
         startLogoutCountdown();
       }, INACTIVITY_WARNING_TIME);
       
-      setWarningTimer(newWarningTimer);
+      warningTimerRef.current = newWarningTimer;
     }
-  }, [warningTimer, logoutTimer, showWarning, status, session]);
-  
-  // 로그아웃 카운트다운 시작
-  const startLogoutCountdown = useCallback(() => {
-    setSecondsLeft(FINAL_TIMEOUT_TIME / 1000);
-    
-    // 1초마다 카운트다운
-    const countdownInterval = setInterval(() => {
-      setSecondsLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(countdownInterval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    
-    // 최종 로그아웃 타이머 설정
-    const newLogoutTimer = setTimeout(() => {
-      console.log('세션 타임아웃: 자동 로그아웃');
-      // 로그아웃 실행
-      signOut({ redirect: false }).then(() => {
-        router.push('/login?timeout=true');
-      });
-    }, FINAL_TIMEOUT_TIME);
-    
-    setLogoutTimer(newLogoutTimer);
-    
-    return () => {
-      clearInterval(countdownInterval);
-      if (newLogoutTimer) clearTimeout(newLogoutTimer);
-    };
-  }, [router]);
+  }, [showWarning, status, session, startLogoutCountdown]);
   
   // 세션 연장 처리
   const extendSession = useCallback(() => {
@@ -108,11 +131,12 @@ export default function SessionTimeoutHandler() {
         });
         
         if (debounceTimer) clearTimeout(debounceTimer);
-        if (warningTimer) clearTimeout(warningTimer);
-        if (logoutTimer) clearTimeout(logoutTimer);
+        if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
+        if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
+        if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
       };
     }
-  }, [resetTimers, status, session, warningTimer, logoutTimer]);
+  }, [resetTimers, status, session]);
   
   // 세션이 없으면 아무것도 렌더링하지 않음
   if (status !== 'authenticated' || !session) {
