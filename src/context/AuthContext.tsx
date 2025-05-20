@@ -8,7 +8,7 @@ import type { Session } from 'next-auth';
 export type AuthContextType = {
   user: Session['user'] | null;
   isLoading: boolean;
-  signOut: () => Promise<void>;
+  signOut: (options?: { callbackUrl?: string }) => Promise<void>;
 };
 
 // 기본값으로 컨텍스트 생성
@@ -32,9 +32,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session, status]);
   
   // 로그아웃 함수
-  const signOut = async () => {
+  const signOut = async (options?: { callbackUrl?: string }) => {
     try {
-      await nextAuthSignOut({ callbackUrl: '/' });
+      await nextAuthSignOut(options || { callbackUrl: '/' });
     } catch (err) {
       console.error('로그아웃 중 오류 발생:', err);
     }
