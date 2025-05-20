@@ -2,10 +2,9 @@
 
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import StudySession from "../components/StudySession";
-import AddCardForm from "../components/AddCardForm";
-import QuizManager from "../components/QuizManager";
+import QuizManagement from "../components/QuizManagement";
 import SubjectManager from "../components/SubjectManager";
 import TabLayout from "../components/TabLayout";
 import FeedbackButton from "../components/FeedbackButton";
@@ -17,12 +16,6 @@ export default function Home() {
   const { data: session, status } = useSession();
   const isLoading = status === 'loading';
   const user = session?.user;
-
-  // 새로고침 핸들러
-  const handleCardAdded = () => {
-    // 퀴즈가 추가된 후 페이지 새로고침
-    router.refresh();
-  };
 
   // 로그아웃 핸들러
   const handleLogout = async () => {
@@ -41,14 +34,9 @@ export default function Home() {
       content: <StudySession />
     },
     {
-      id: 'add',
-      label: <><span className="hidden sm:inline">퀴즈추가</span><span className="sm:hidden">추가</span></>,
-      content: <AddCardForm onCardAdded={handleCardAdded} />
-    },
-    {
-      id: 'manage',
-      label: <><span className="hidden sm:inline">퀴즈관리</span><span className="sm:hidden">관리</span></>,
-      content: <QuizManager />
+      id: 'quizManagement',
+      label: <><span className="hidden sm:inline">퀴즈관리</span><span className="sm:hidden">퀴즈</span></>,
+      content: <QuizManagement />
     },
     {
       id: 'subjects',
