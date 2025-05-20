@@ -4,16 +4,16 @@ import type { NextRequest } from "next/server";
 
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // params를 비동기적으로 처리
-    const params = await Promise.resolve(context.params);
-    const subjectId = parseInt(params.id);
+    // params를 await로 처리
+    const { id } = await params;
     
-    if (isNaN(subjectId)) {
+    const subjectId = id;
+    if (!subjectId) {
       return NextResponse.json(
-        { error: "유효한 과목 ID가 필요합니다." },
+        { error: "과목 ID가 필요합니다." },
         { status: 400 }
       );
     }
@@ -31,11 +31,10 @@ export async function GET(
       );
     }
 
-    // 현재 날짜 가져오기
-    const today = new Date().toISOString();
-    
+    // 오늘 날짜 (ISO 형식)
+    const today = new Date().toISOString().split('T')[0];
+
     // Supabase REST API를 통해 오늘 학습할 카드 조회
-    // next_review가 현재 시간보다 이전인 카드들 가져오기
     const response = await fetch(
       `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/flashcards?subject_id=eq.${subjectId}&user_id=eq.${token.sub}&or=(next_review.lte.${today},next_review.is.null)&select=*&order=box_number.asc,last_reviewed.asc`,
       {

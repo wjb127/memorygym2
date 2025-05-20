@@ -13,11 +13,11 @@ const REVIEW_INTERVALS = [
 
 export async function POST(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // params를 비동기적으로 처리
-    const params = await Promise.resolve(context.params);
+    // params를 await로 처리
+    const { id } = await params;
     
     // Next Auth 토큰 확인
     const token = await getToken({ 
@@ -33,7 +33,7 @@ export async function POST(
     }
     
     // 카드 ID 확인
-    const cardId = parseInt(params.id, 10);
+    const cardId = parseInt(id, 10);
     if (isNaN(cardId)) {
       return NextResponse.json(
         { error: "유효한 카드 ID가 필요합니다." },

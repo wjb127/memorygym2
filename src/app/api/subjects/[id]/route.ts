@@ -4,21 +4,21 @@ import type { NextRequest } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // params를 비동기적으로 처리
-    const params = await Promise.resolve(context.params);
-    const id = parseInt(params.id);
+    // params를 await로 처리
+    const { id } = await params;
     
-    if (isNaN(id)) {
+    // ID 확인
+    if (!id) {
       return NextResponse.json(
-        { error: '유효하지 않은 과목 ID입니다.' },
+        { error: "과목 ID가 필요합니다." },
         { status: 400 }
       );
     }
 
-    // Next Auth 토큰으로 인증 확인
+    // Next Auth 토큰 확인
     const token = await getToken({ 
       req: request, 
       secret: process.env.NEXTAUTH_SECRET 
@@ -26,7 +26,7 @@ export async function GET(
     
     if (!token) {
       return NextResponse.json(
-        { error: '로그인이 필요합니다.' },
+        { error: "인증되지 않은 요청입니다." },
         { status: 401 }
       );
     }
@@ -38,37 +38,41 @@ export async function GET(
         headers: {
           'Content-Type': 'application/json',
           'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-          'Prefer': 'return=representation'
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
         }
       }
     );
 
     if (!response.ok) {
-      console.error('[API] 과목 조회 오류:', response.statusText);
       return NextResponse.json(
-        { error: '과목 조회 중 오류가 발생했습니다.' },
+        { error: "과목 조회 중 오류가 발생했습니다." },
         { status: response.status }
       );
     }
 
-    const data = await response.json();
-
-    if (!data || data.length === 0) {
+    const subjects = await response.json();
+    
+    if (!subjects || subjects.length === 0) {
       return NextResponse.json(
-        { error: '과목을 찾을 수 없습니다.' },
+        { error: "과목을 찾을 수 없습니다." },
         { status: 404 }
       );
     }
 
-    // 첫 번째 결과 사용
-    const subject = data[0];
+    // 사용자 권한 확인
+    const subject = subjects[0];
+    if (subject.user_id !== token.sub) {
+      return NextResponse.json(
+        { error: "이 과목에 대한 접근 권한이 없습니다." },
+        { status: 403 }
+      );
+    }
 
     return NextResponse.json({ data: subject });
   } catch (error) {
-    console.error('[API] 과목 조회 처리 중 오류:', error);
+    console.error("과목 조회 처리 중 오류:", error);
     return NextResponse.json(
-      { error: '과목 조회 중 오류가 발생했습니다.' },
+      { error: "과목 조회 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }
@@ -77,16 +81,15 @@ export async function GET(
 // 과목 업데이트 (PUT)
 export async function PUT(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // params를 비동기적으로 처리
-    const params = await Promise.resolve(context.params);
-    const id = parseInt(params.id);
+    // params를 await로 처리
+    const { id } = await params;
     
-    if (isNaN(id)) {
+    if (!id) {
       return NextResponse.json(
-        { error: '유효하지 않은 과목 ID입니다.' },
+        { error: '유효한 과목 ID가 필요합니다.' },
         { status: 400 }
       );
     }
@@ -173,21 +176,21 @@ export async function PUT(
 // 과목 삭제 (DELETE)
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // params를 비동기적으로 처리
-    const params = await Promise.resolve(context.params);
-    const id = parseInt(params.id);
+    // params를 await로 처리
+    const { id } = await params;
     
-    if (isNaN(id)) {
+    // ID 확인
+    if (!id) {
       return NextResponse.json(
-        { error: '유효하지 않은 과목 ID입니다.' },
+        { error: "과목 ID가 필요합니다." },
         { status: 400 }
       );
     }
 
-    // Next Auth 토큰으로 인증 확인
+    // Next Auth 토큰 확인
     const token = await getToken({ 
       req: request, 
       secret: process.env.NEXTAUTH_SECRET 
@@ -195,13 +198,50 @@ export async function DELETE(
     
     if (!token) {
       return NextResponse.json(
-        { error: '로그인이 필요합니다.' },
+        { error: "인증되지 않은 요청입니다." },
         { status: 401 }
       );
     }
 
+    // 현재 과목 확인 (사용자 권한 확인)
+    const subjectResponse = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/subjects?id=eq.${id}&select=*`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+        }
+      }
+    );
+    
+    if (!subjectResponse.ok) {
+      return NextResponse.json(
+        { error: "과목 조회 중 오류가 발생했습니다." },
+        { status: subjectResponse.status }
+      );
+    }
+    
+    const subjects = await subjectResponse.json();
+    
+    if (!subjects || subjects.length === 0) {
+      return NextResponse.json(
+        { error: "과목을 찾을 수 없습니다." },
+        { status: 404 }
+      );
+    }
+    
+    // 사용자 권한 확인
+    const subject = subjects[0];
+    if (subject.user_id !== token.sub) {
+      return NextResponse.json(
+        { error: "이 과목에 대한 접근 권한이 없습니다." },
+        { status: 403 }
+      );
+    }
+
     // Supabase REST API로 과목 삭제
-    const response = await fetch(
+    const deleteResponse = await fetch(
       `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/subjects?id=eq.${id}`,
       {
         method: 'DELETE',
@@ -212,23 +252,22 @@ export async function DELETE(
         }
       }
     );
-
-    if (!response.ok) {
-      console.error('[API] 과목 삭제 오류:', response.statusText);
+    
+    if (!deleteResponse.ok) {
       return NextResponse.json(
-        { error: '과목 삭제 중 오류가 발생했습니다.' },
-        { status: response.status }
+        { error: "과목 삭제 중 오류가 발생했습니다." },
+        { status: deleteResponse.status }
       );
     }
-
-    return NextResponse.json({ 
+    
+    return NextResponse.json({
       success: true,
-      message: '과목이 성공적으로 삭제되었습니다.' 
+      message: "과목이 성공적으로 삭제되었습니다."
     });
   } catch (error) {
-    console.error('[API] 과목 삭제 처리 중 오류:', error);
+    console.error("과목 삭제 처리 중 오류:", error);
     return NextResponse.json(
-      { error: '과목 삭제 중 오류가 발생했습니다.' },
+      { error: "과목 삭제 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }

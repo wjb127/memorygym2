@@ -5,14 +5,14 @@ import { supabase } from '@/utils/supabase-client';
 
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // params를 비동기적으로 처리
-    const params = await Promise.resolve(context.params);
+    // params를 await로 처리
+    const { id } = await params;
     
     // 과목 ID 확인
-    const subjectId = params.id;
+    const subjectId = id;
     if (!subjectId) {
       return NextResponse.json(
         { error: "과목 ID가 필요합니다." },

@@ -5,17 +5,17 @@ import type { NextRequest } from "next/server";
 // 과목별 카드 목록 조회
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // params를 비동기적으로 처리
-    const params = await Promise.resolve(context.params);
-    console.log(`[API] GET /api/subjects/${params.id}/cards 요청 처리 시작`);
+    // params를 await로 처리
+    const { id } = await params;
+    console.log(`[API] GET /api/subjects/${id}/cards 요청 처리 시작`);
     
-    const subjectId = parseInt(params.id);
+    const subjectId = parseInt(id);
     
     if (isNaN(subjectId)) {
-      console.error(`[API] 과목 ID 파싱 오류: ${params.id}는 유효한 숫자가 아님`);
+      console.error(`[API] 과목 ID 파싱 오류: ${id}는 유효한 숫자가 아님`);
       return NextResponse.json(
         { error: "유효한 과목 ID가 필요합니다." },
         { status: 400 }
@@ -90,17 +90,17 @@ export async function GET(
 // 새 카드 추가 API
 export async function POST(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // params를 비동기적으로 처리
-    const params = await Promise.resolve(context.params);
-    console.log(`[API] POST /api/subjects/${params.id}/cards 요청 처리 시작`);
+    // params를 await로 처리
+    const { id } = await params;
+    console.log(`[API] POST /api/subjects/${id}/cards 요청 처리 시작`);
     
-    const subjectId = parseInt(params.id);
+    const subjectId = parseInt(id);
     
     if (isNaN(subjectId)) {
-      console.error(`[API] 과목 ID 파싱 오류: ${params.id}는 유효한 숫자가 아님`);
+      console.error(`[API] 과목 ID 파싱 오류: ${id}는 유효한 숫자가 아님`);
       return NextResponse.json(
         { error: "유효한 과목 ID가 필요합니다." },
         { status: 400 }

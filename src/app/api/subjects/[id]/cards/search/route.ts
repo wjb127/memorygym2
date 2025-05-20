@@ -4,16 +4,16 @@ import type { NextRequest } from "next/server";
 
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // params를 비동기적으로 처리
-    const params = await Promise.resolve(context.params);
-    const subjectId = parseInt(params.id);
+    // params를 await로 처리
+    const { id } = await params;
     
-    if (isNaN(subjectId)) {
+    const subjectId = id;
+    if (!subjectId) {
       return NextResponse.json(
-        { error: "유효한 과목 ID가 필요합니다." },
+        { error: "과목 ID가 필요합니다." },
         { status: 400 }
       );
     }
@@ -31,21 +31,20 @@ export async function GET(
       );
     }
 
-    // 검색어 확인
+    // 쿼리 파라미터 확인
     const url = new URL(request.url);
-    const searchQuery = url.searchParams.get('q');
+    const query = url.searchParams.get('q') || '';
     
-    if (!searchQuery?.trim()) {
+    if (!query.trim()) {
       return NextResponse.json(
-        { error: "검색어를 입력해주세요." },
+        { error: "검색어가 필요합니다." },
         { status: 400 }
       );
     }
-    
-    // ilike를 사용한 부분 일치 검색 쿼리 구성
-    // 앞면 또는 뒷면에 검색어가 포함된 카드 검색
-    const searchFilter = `or=(front.ilike.%${searchQuery}%,back.ilike.%${searchQuery}%)`;
-    
+
+    // 검색 필터 구성
+    const searchFilter = `or=(front.ilike.${encodeURIComponent(`%${query}%`)},back.ilike.${encodeURIComponent(`%${query}%`)})`;
+
     // Supabase REST API를 통해 카드 검색
     const response = await fetch(
       `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/flashcards?subject_id=eq.${subjectId}&user_id=eq.${token.sub}&${searchFilter}&select=*&order=created_at.desc`,
@@ -59,7 +58,6 @@ export async function GET(
     );
 
     if (!response.ok) {
-      console.error("카드 검색 오류:", response.statusText);
       return NextResponse.json(
         { error: "카드 검색 중 오류가 발생했습니다." },
         { status: response.status }

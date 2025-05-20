@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '../utils/supabase';
+import { supabase } from '../utils/supabase-client';
 
 export default function CreateMemory() {
   const [loading, setLoading] = useState(false);
