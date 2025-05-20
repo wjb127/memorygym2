@@ -23,23 +23,28 @@ export default function UpdatePassword() {
   useEffect(() => {
     logDebug('페이지 로드', { status });
     
+    // 로딩 중이 아니고 인증되지 않은 경우에만 로그인 페이지로 리다이렉트
     if (status === 'unauthenticated') {
-      logDebug('인증되지 않은 상태');
-      setMessage({ 
-        type: 'error', 
-        text: '인증 세션이 유효하지 않습니다. 비밀번호 재설정 링크를 다시 요청해주세요.' 
-      });
+      logDebug('인증되지 않은 상태, 로그인 페이지로 리다이렉트');
+      router.push('/login?callbackUrl=/update-password');
     } else if (status === 'authenticated') {
       logDebug('인증된 상태', { 
         user: session?.user?.email,
         userId: session?.user?.id
       });
     }
-  }, [status, session]);
+  }, [status, session, router]);
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     logDebug('비밀번호 변경 요청 시작');
+    
+    // 세션이 없으면 변경 시도하지 않음
+    if (status !== 'authenticated' || !session) {
+      logDebug('인증되지 않은 상태에서 비밀번호 변경 시도');
+      setMessage({ type: 'error', text: '로그인 상태에서만 비밀번호를 변경할 수 있습니다.' });
+      return;
+    }
     
     if (!currentPassword) {
       logDebug('유효성 검사 실패: 현재 비밀번호 누락');
@@ -69,7 +74,11 @@ export default function UpdatePassword() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ currentPassword, password }),
+        body: JSON.stringify({ 
+          currentPassword, 
+          password,
+          email: session.user?.email // 이메일 추가
+        }),
       });
       
       logDebug('API 응답 수신', { status: response.status });
@@ -107,6 +116,37 @@ export default function UpdatePassword() {
     }
   };
   
+  // 로딩 중이면 로딩 표시
+  if (status === 'loading') {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-8 bg-white p-6 rounded-lg shadow-md border border-[var(--neutral-300)]">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold">비밀번호 변경</h1>
+            <div className="mt-6 flex justify-center">
+              <div className="animate-spin rounded-full h-10 w-10 border-4 border-[var(--primary)] border-r-transparent"></div>
+            </div>
+            <p className="mt-4 text-[var(--neutral-700)]">인증 세션 확인 중...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // 인증되지 않은 경우 리다이렉트 처리 (useEffect에서 처리)
+  if (status === 'unauthenticated') {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-8 bg-white p-6 rounded-lg shadow-md border border-[var(--neutral-300)]">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold">비밀번호 변경</h1>
+            <p className="mt-4 text-[var(--neutral-700)]">로그인 페이지로 이동합니다...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8 bg-white p-6 rounded-lg shadow-md border border-[var(--neutral-300)]">
@@ -128,75 +168,67 @@ export default function UpdatePassword() {
           </div>
         )}
         
-        {status === 'authenticated' && (
-          <form onSubmit={handleUpdatePassword} className="mt-8 space-y-6" role="form">
-            <div>
-              <label htmlFor="currentPassword" className="block text-sm font-medium text-[var(--neutral-700)]">
-                현재 비밀번호
-              </label>
-              <input
-                id="currentPassword"
-                name="currentPassword"
-                type="password"
-                required
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-[var(--neutral-300)] p-2"
-                placeholder="현재 사용 중인 비밀번호"
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-[var(--neutral-700)]">
-                새 비밀번호
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-[var(--neutral-300)] p-2"
-                placeholder="8자 이상의 새 비밀번호"
-                minLength={8}
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-[var(--neutral-700)]">
-                비밀번호 확인
-              </label>
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-[var(--neutral-300)] p-2"
-                placeholder="비밀번호 다시 입력"
-                minLength={8}
-              />
-            </div>
-            
-            <div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-[var(--primary)] text-white p-2 rounded-md hover:bg-opacity-90 transition-all disabled:opacity-50"
-              >
-                {loading ? '처리 중...' : '비밀번호 변경하기'}
-              </button>
-            </div>
-          </form>
-        )}
-        
-        {status === 'loading' && (
-          <div className="mt-6 text-center">
-            <p className="text-[var(--neutral-700)]">인증 세션 확인 중...</p>
+        <form onSubmit={handleUpdatePassword} className="mt-8 space-y-6" role="form">
+          <div>
+            <label htmlFor="currentPassword" className="block text-sm font-medium text-[var(--neutral-700)]">
+              현재 비밀번호
+            </label>
+            <input
+              id="currentPassword"
+              name="currentPassword"
+              type="password"
+              required
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              className="mt-1 block w-full rounded-md border border-[var(--neutral-300)] p-2"
+              placeholder="현재 사용 중인 비밀번호"
+            />
           </div>
-        )}
+          
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-[var(--neutral-700)]">
+              새 비밀번호
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1 block w-full rounded-md border border-[var(--neutral-300)] p-2"
+              placeholder="8자 이상의 새 비밀번호"
+              minLength={8}
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-[var(--neutral-700)]">
+              비밀번호 확인
+            </label>
+            <input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              required
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="mt-1 block w-full rounded-md border border-[var(--neutral-300)] p-2"
+              placeholder="비밀번호 다시 입력"
+              minLength={8}
+            />
+          </div>
+          
+          <div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-[var(--primary)] text-white p-2 rounded-md hover:bg-opacity-90 transition-all disabled:opacity-50"
+            >
+              {loading ? '처리 중...' : '비밀번호 변경하기'}
+            </button>
+          </div>
+        </form>
         
         <div className="mt-4 text-center text-sm">
           <p>
