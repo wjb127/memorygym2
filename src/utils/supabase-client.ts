@@ -90,3 +90,31 @@ export async function getUserProfile() {
     return { user: null, error };
   }
 }
+
+// 비밀번호 업데이트 함수
+export async function updateUserPassword(userId: string, newPassword: string) {
+  try {
+    console.log(`[Supabase Client] 비밀번호 업데이트 시도 - 사용자 ID: ${userId}`);
+    
+    // Supabase Auth API를 사용하여 비밀번호 업데이트
+    const { data, error } = await supabase.auth.updateUser({
+      password: newPassword
+    });
+    
+    if (error) {
+      console.error('[Supabase Client] 비밀번호 업데이트 실패:', error);
+      return { data: null, error };
+    }
+    
+    console.log('[Supabase Client] 비밀번호 업데이트 성공');
+    return { data, error: null };
+  } catch (error: any) {
+    console.error('[Supabase Client] 비밀번호 업데이트 예외:', error.message);
+    return { 
+      data: null, 
+      error: { 
+        message: error.message || '비밀번호 업데이트 중 오류가 발생했습니다.' 
+      } 
+    };
+  }
+}

@@ -5,6 +5,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 
+// 디버그 로그 함수
+function logDebug(message: string, data?: any) {
+  console.log(`[비밀번호 변경 페이지] ${message}`, data ? JSON.stringify(data) : '');
+}
+
 export default function UpdatePassword() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -15,23 +20,34 @@ export default function UpdatePassword() {
 
   // 페이지 로드 시 세션 확인
   useEffect(() => {
+    logDebug('페이지 로드', { status });
+    
     if (status === 'unauthenticated') {
+      logDebug('인증되지 않은 상태');
       setMessage({ 
         type: 'error', 
         text: '인증 세션이 유효하지 않습니다. 비밀번호 재설정 링크를 다시 요청해주세요.' 
       });
+    } else if (status === 'authenticated') {
+      logDebug('인증된 상태', { 
+        user: session?.user?.email,
+        userId: session?.user?.id
+      });
     }
-  }, [status]);
+  }, [status, session]);
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    logDebug('비밀번호 변경 요청 시작');
     
     if (password.length < 8) {
+      logDebug('유효성 검사 실패: 비밀번호 길이 부족', { length: password.length });
       setMessage({ type: 'error', text: '비밀번호는 8자 이상이어야 합니다.' });
       return;
     }
     
     if (password !== confirmPassword) {
+      logDebug('유효성 검사 실패: 비밀번호 불일치');
       setMessage({ type: 'error', text: '비밀번호가 일치하지 않습니다.' });
       return;
     }
@@ -40,6 +56,7 @@ export default function UpdatePassword() {
       setLoading(true);
       setMessage(null);
       
+      logDebug('API 요청 시작');
       const response = await fetch('/api/auth/update-password', {
         method: 'POST',
         headers: {
@@ -48,25 +65,32 @@ export default function UpdatePassword() {
         body: JSON.stringify({ password }),
       });
       
+      logDebug('API 응답 수신', { status: response.status });
       const data = await response.json();
+      logDebug('API 응답 데이터', data);
       
       if (!response.ok) {
-        throw new Error(data.error);
+        throw new Error(data.error || '비밀번호 변경 중 오류가 발생했습니다.');
       }
       
+      logDebug('비밀번호 변경 성공');
       setMessage({ 
         type: 'success', 
         text: '비밀번호가 성공적으로 변경되었습니다. 새 비밀번호로 로그인해주세요.' 
       });
       
       // 로그아웃 처리
+      logDebug('로그아웃 시작');
       await signOut({ redirect: false });
+      logDebug('로그아웃 완료');
       
       // 3초 후 로그인 페이지로 리다이렉트
+      logDebug('3초 후 로그인 페이지로 리다이렉트 예정');
       setTimeout(() => {
         router.push('/login');
       }, 3000);
     } catch (err: any) {
+      logDebug('오류 발생', { message: err.message });
       setMessage({ 
         type: 'error', 
         text: err.message || '비밀번호 변경 중 오류가 발생했습니다. 다시 시도해주세요.' 
