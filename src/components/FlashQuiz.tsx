@@ -35,7 +35,7 @@ export default function FlashQuiz({ quiz, onAnswer }: FlashQuizProps) {
     }, 100);
     
     return () => clearTimeout(timer);
-  }, [quiz.id]); // quiz.id가 변경될 때마다 실행
+  }, [quiz.id, quiz.box_number]); // quiz.id와 quiz.box_number가 변경될 때마다 실행
 
   const checkAnswer = (e: FormEvent) => {
     e.preventDefault();

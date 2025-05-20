@@ -5,6 +5,8 @@ import { getCardsByBox, updateCardBox } from '../utils/leitner';
 import { FlashQuiz as FlashQuizType, BOX_NAMES } from '../utils/types';
 import FlashQuiz from './FlashQuiz';
 import SubjectSelector from './SubjectSelector';
+import { useCards } from '@/context/CardContext';
+import { registerUpdateBoxCountsFunction } from './QuizManagement';
 
 // 상자 번호에 따른 이모지 반환 함수
 const getBoxEmoji = (boxNumber: number): string => {
@@ -29,6 +31,9 @@ export default function StudySession() {
     4: 0,
     5: 0,
   });
+  
+  // 카드 상태 변경 감지를 위한 컨텍스트 사용
+  const { lastUpdated } = useCards();
 
   // 훈련소 번호나 과목이 변경되거나 학습이 재시작될 때 퀴즈 새로 로드
   useEffect(() => {
@@ -72,10 +77,15 @@ export default function StudySession() {
     }
   }, [selectedSubject]);
 
-  // 과목이 변경되면 훈련소별 퀴즈 수 업데이트
+  // 컴포넌트 마운트 시 updateBoxCounts 함수 등록
+  useEffect(() => {
+    registerUpdateBoxCountsFunction(updateBoxCounts);
+  }, [updateBoxCounts]);
+
+  // 과목이 변경되거나 카드 상태가 변경될 때마다 훈련소별 퀴즈 수 업데이트
   useEffect(() => {
     updateBoxCounts();
-  }, [updateBoxCounts]);
+  }, [updateBoxCounts, lastUpdated]);
 
   // 특정 훈련소의 퀴즈 로드 (과목별 필터링 지원)
   const loadQuizzesByBox = async (boxNumber: number, subjectId: number | null) => {
@@ -109,7 +119,7 @@ export default function StudySession() {
 
   const handleAnswer = async (quizId: number, isCorrect: boolean) => {
     try {
-      await updateCardBox(quizId, isCorrect);
+      const updatedCard = await updateCardBox(quizId, isCorrect);
       
       // 통계 업데이트
       setStats(prev => ({
@@ -117,12 +127,24 @@ export default function StudySession() {
         incorrect: prev.incorrect + (isCorrect ? 0 : 1)
       }));
       
+      // 현재 퀴즈의 box_number 업데이트
+      if (updatedCard) {
+        setQuizzes(prevQuizzes => 
+          prevQuizzes.map(quiz => 
+            quiz.id === quizId ? { ...quiz, box_number: updatedCard.box_number } : quiz
+          )
+        );
+      }
+      
       // 다음 퀴즈 또는 완료로 이동
       if (currentQuizIndex < quizzes.length - 1) {
         setCurrentQuizIndex(prevIndex => prevIndex + 1);
       } else {
         setCompleted(true);
       }
+
+      // 카드 상자 변경 후 훈련소별 퀴즈 수 업데이트
+      updateBoxCounts();
     } catch (error) {
       console.error('답변 처리 오류:', error);
     }

@@ -9,9 +9,10 @@ import { useCards } from '@/context/CardContext';
 
 interface AddCardFormProps {
   onCardAdded?: () => void;
+  updateBoxCounts?: () => void;
 }
 
-export default function AddCardForm({ onCardAdded }: AddCardFormProps) {
+export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFormProps) {
   const [front, setFront] = useState('');
   const [back, setBack] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -128,6 +129,11 @@ export default function AddCardForm({ onCardAdded }: AddCardFormProps) {
         setCanAddCardToSubject(canAdd);
       }
       
+      // 훈련소 카운트 업데이트 함수 호출
+      if (updateBoxCounts) {
+        updateBoxCounts();
+      }
+      
       if (onCardAdded) {
         onCardAdded();
       }
@@ -235,6 +241,11 @@ export default function AddCardForm({ onCardAdded }: AddCardFormProps) {
       if (successCount > 0) {
         // 카드 상태 업데이트 (컨텍스트 통해 다른 컴포넌트에 알림)
         refreshCards();
+        
+        // 훈련소 카운트 업데이트 함수 호출
+        if (updateBoxCounts) {
+          updateBoxCounts();
+        }
       }
       
       // 오류가 있으면 오류 메시지 표시

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { addSubject } from '../utils/leitner';
 import { usePremium } from '@/context/PremiumContext';
 import { useAuth } from '@/context/AuthContext';
+import { useCards } from '@/context/CardContext';
 
 interface SubjectFormProps {
   onSubjectAdded?: () => void;
@@ -19,6 +20,8 @@ export default function SubjectForm({ onSubjectAdded }: SubjectFormProps) {
   // 프리미엄 상태 확인
   const { canAddSubject, isPremium, currentPlan, totalSubjectsCount } = usePremium();
   const { user } = useAuth();
+  // 카드 상태 관리 컨텍스트 사용
+  const { refreshCards } = useCards();
 
   const resetForm = () => {
     setName('');
@@ -60,6 +63,9 @@ export default function SubjectForm({ onSubjectAdded }: SubjectFormProps) {
         setSubmitMessage('과목이 성공적으로 추가되었습니다!');
         setName('');
         setDescription('');
+        
+        // 카드 상태 업데이트 (컨텍스트 통해 다른 컴포넌트에 알림)
+        refreshCards();
         
         if (onSubjectAdded) {
           onSubjectAdded();

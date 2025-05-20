@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { getAllSubjects, updateSubject, deleteSubject } from '../utils/leitner';
 import { Subject } from '../utils/types';
 import { useAuth } from '@/context/AuthContext';
+import { useCards } from '@/context/CardContext';
 
 export default function SubjectList() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -13,6 +14,7 @@ export default function SubjectList() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user } = useAuth();
+  const { refreshCards } = useCards();
   
   // 수정 폼 상태
   const [editName, setEditName] = useState('');
@@ -78,6 +80,9 @@ export default function SubjectList() {
           s.id === editingSubject.id ? updatedSubject : s
         ));
         setEditingSubject(null); // 수정 모드 종료
+        
+        // 카드 상태 업데이트 (컨텍스트 통해 다른 컴포넌트에 알림)
+        refreshCards();
       } else {
         setError('과목 수정에 실패했습니다.');
       }
@@ -101,6 +106,9 @@ export default function SubjectList() {
         // 과목 목록에서 삭제
         setSubjects(subjects.filter(s => s.id !== subjectId));
         setDeleteConfirmId(null); // 삭제 확인 모드 종료
+        
+        // 카드 상태 업데이트 (컨텍스트 통해 다른 컴포넌트에 알림)
+        refreshCards();
       } else {
         setError('과목 삭제에 실패했습니다.');
       }

@@ -1,9 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AddCardForm from './AddCardForm';
 import QuizManager from './QuizManager';
 import { useCards } from '@/context/CardContext';
+
+// StudySession 컴포넌트에서 updateBoxCounts 함수 가져오기
+let globalUpdateBoxCounts: (() => void) | undefined;
+
+export function registerUpdateBoxCountsFunction(updateBoxCounts: () => void) {
+  globalUpdateBoxCounts = updateBoxCounts;
+  console.log('[QuizManagement] updateBoxCounts 함수가 등록되었습니다');
+}
 
 export default function QuizManagement() {
   const [activeTab, setActiveTab] = useState<'add' | 'manage'>('add');
@@ -41,7 +49,10 @@ export default function QuizManagement() {
 
       <div className="pt-2">
         {activeTab === 'add' ? (
-          <AddCardForm onCardAdded={handleCardAdded} />
+          <AddCardForm 
+            onCardAdded={handleCardAdded} 
+            updateBoxCounts={globalUpdateBoxCounts}
+          />
         ) : (
           <QuizManager />
         )}
