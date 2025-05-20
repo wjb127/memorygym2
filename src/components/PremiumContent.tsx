@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import PaymentButton from './PaymentButton';
+import type { Session } from 'next-auth';
 
 interface PremiumContentProps {
-  user: any; // Supabase 사용자 객체
+  user: Session['user'] | null;
 }
 
 export default function PremiumContent({ user }: PremiumContentProps) {
@@ -106,9 +107,9 @@ export default function PremiumContent({ user }: PremiumContentProps) {
           <PaymentButton
             productName={plans.find((p) => p.id === selectedPlan)?.name || ''}
             amount={plans.find((p) => p.id === selectedPlan)?.price || 0}
-            customerName={user?.user_metadata?.full_name || '구매자'}
+            customerName={user?.name || '구매자'}
             customerEmail={user?.email || 'customer@example.com'}
-            customerMobile={user?.phone || '01012345678'}
+            customerMobile="01012345678"
           />
           
           <p className="text-sm text-[var(--neutral-700)] mt-4 text-center">

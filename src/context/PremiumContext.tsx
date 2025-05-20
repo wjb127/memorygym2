@@ -1,8 +1,11 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { useAuth } from './AuthContext';
-import { supabase } from '@/utils/supabase';
+import { useSession } from 'next-auth/react';
+import { 
+  isSampleSubject, 
+  getSampleCardCountBySubject 
+} from '@/utils/sample-data';
 
 // 프리미엄 플랜 타입 정의
 export type PremiumPlan = {
@@ -44,7 +47,7 @@ const PremiumContext = createContext<PremiumContextType | undefined>(undefined);
 
 // 컨텍스트 프로바이더 컴포넌트
 export function PremiumProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { data: session, status } = useSession();
   const [isPremium, setIsPremium] = useState(false);
   const [premiumUntil, setPremiumUntil] = useState<Date | null>(null);
   const [currentPlan, setCurrentPlan] = useState<PremiumPlan | null>(FREE_PLAN);
@@ -53,7 +56,7 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
   
   // 사용자의 프리미엄 상태 로드
   const loadPremiumStatus = async () => {
-    if (!user) {
+    if (!session || !session.user) {
       setIsPremium(false);
       setPremiumUntil(null);
       setCurrentPlan(FREE_PLAN);
@@ -64,19 +67,22 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     
     try {
-      // 프로필 정보 가져오기
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('is_premium, premium_until')
-        .eq('id', user.id)
-        .single();
+      // API를 통해 프로필 정보 가져오기
+      const profileResponse = await fetch('/api/profile', {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
       
-      if (profileError) {
-        console.error('프로필 정보 로드 오류:', profileError);
+      if (!profileResponse.ok) {
+        console.error('프로필 정보 로드 오류');
         setIsPremium(false);
         setPremiumUntil(null);
         setCurrentPlan(FREE_PLAN);
       } else {
+        const profileData = await profileResponse.json();
+        
         // 프리미엄 상태 설정
         const isPremiumUser = profileData?.is_premium || false;
         const premiumUntilDate = profileData?.premium_until ? new Date(profileData.premium_until) : null;
@@ -89,29 +95,30 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
         
         // 현재 플랜 정보 가져오기 (프리미엄이면 프리미엄 플랜, 아니면 무료 플랜)
         if (isPremiumUser && !isExpired) {
-          const { data: planData } = await supabase
-            .from('premium_plans')
-            .select('*')
-            .eq('name', '프리미엄')
-            .single();
-          
-          setCurrentPlan(planData || FREE_PLAN);
+          // 프리미엄 플랜 정보 가져오기
+          const planResponse = await fetch('/api/premium/plans?name=프리미엄');
+          if (planResponse.ok) {
+            const planData = await planResponse.json();
+            setCurrentPlan(planData || FREE_PLAN);
+          } else {
+            setCurrentPlan(FREE_PLAN);
+          }
         } else {
           setCurrentPlan(FREE_PLAN);
         }
       }
       
       // 사용자의 과목 수 가져오기
-      const { count, error: countError } = await supabase
-        .from('subjects')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
+      const subjectsResponse = await fetch('/api/subjects/count', {
+        credentials: 'include'
+      });
       
-      if (countError) {
-        console.error('과목 수 로드 오류:', countError);
-        setTotalSubjectsCount(0);
+      if (subjectsResponse.ok) {
+        const countData = await subjectsResponse.json();
+        setTotalSubjectsCount(countData.count || 0);
       } else {
-        setTotalSubjectsCount(count || 0);
+        console.error('과목 수 로드 오류');
+        setTotalSubjectsCount(0);
       }
     } catch (error) {
       console.error('프리미엄 상태 로드 오류:', error);
@@ -125,8 +132,10 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
   
   // 사용자 변경 시 프리미엄 상태 로드
   useEffect(() => {
-    loadPremiumStatus();
-  }, [user]);
+    if (status === 'authenticated') {
+      loadPremiumStatus();
+    }
+  }, [status, session]);
   
   // 새 과목을 추가할 수 있는지 확인
   const canAddSubject = isPremium || 
@@ -134,6 +143,12 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
   
   // 특정 과목에 새 카드를 추가할 수 있는지 확인
   const canAddCard = async (subjectId: number) => {
+    // 샘플 과목인 경우 항상 추가 가능
+    if (isSampleSubject(subjectId)) {
+      console.log(`[PremiumContext] 샘플 과목(ID: ${subjectId})에는 항상 카드 추가 가능`);
+      return true;
+    }
+    
     if (isPremium) return true;
     
     try {
@@ -148,21 +163,27 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
   
   // 특정 과목의 카드 수 가져오기
   const getSubjectCardCount = async (subjectId: number): Promise<number> => {
-    if (!user) return 0;
+    // 샘플 과목인 경우 샘플 데이터에서 카드 수 반환
+    if (isSampleSubject(subjectId)) {
+      const count = getSampleCardCountBySubject(subjectId);
+      console.log(`[PremiumContext] 샘플 과목(ID: ${subjectId})의 카드 수: ${count}개`);
+      return count;
+    }
+    
+    if (!session?.user) return 0;
     
     try {
-      const { count, error } = await supabase
-        .from('flashcards')
-        .select('*', { count: 'exact', head: true })
-        .eq('subject_id', subjectId)
-        .eq('user_id', user.id);
+      const response = await fetch(`/api/subjects/${subjectId}/cards/count`, {
+        credentials: 'include'
+      });
       
-      if (error) {
-        console.error('과목 카드 수 로드 오류:', error);
+      if (!response.ok) {
+        console.error('과목 카드 수 로드 오류');
         return 0;
       }
       
-      return count || 0;
+      const data = await response.json();
+      return data.count || 0;
     } catch (error) {
       console.error('과목 카드 수 로드 예외:', error);
       return 0;

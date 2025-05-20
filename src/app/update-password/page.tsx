@@ -3,34 +3,25 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '@/utils/supabase-browser';
+import { useSession, signOut } from 'next-auth/react';
 
 export default function UpdatePassword() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const router = useRouter();
+  const { data: session, status } = useSession();
 
   // 페이지 로드 시 세션 확인
   useEffect(() => {
-    const checkSession = async () => {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        setMessage({ 
-          type: 'error', 
-          text: '인증 세션이 유효하지 않습니다. 비밀번호 재설정 링크를 다시 요청해주세요.' 
-        });
-      } else {
-        setIsAuthenticated(true);
-      }
-    };
-    
-    checkSession();
-  }, []);
+    if (status === 'unauthenticated') {
+      setMessage({ 
+        type: 'error', 
+        text: '인증 세션이 유효하지 않습니다. 비밀번호 재설정 링크를 다시 요청해주세요.' 
+      });
+    }
+  }, [status]);
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,6 +59,9 @@ export default function UpdatePassword() {
         text: '비밀번호가 성공적으로 변경되었습니다. 새 비밀번호로 로그인해주세요.' 
       });
       
+      // 로그아웃 처리
+      await signOut({ redirect: false });
+      
       // 3초 후 로그인 페이지로 리다이렉트
       setTimeout(() => {
         router.push('/login');
@@ -103,7 +97,7 @@ export default function UpdatePassword() {
           </div>
         )}
         
-        {isAuthenticated && (
+        {status === 'authenticated' && (
           <form onSubmit={handleUpdatePassword} className="mt-8 space-y-6" role="form">
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-[var(--neutral-700)]">
@@ -151,7 +145,7 @@ export default function UpdatePassword() {
           </form>
         )}
         
-        {!isAuthenticated && !message && (
+        {status === 'loading' && (
           <div className="mt-6 text-center">
             <p className="text-[var(--neutral-700)]">인증 세션 확인 중...</p>
           </div>

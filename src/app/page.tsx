@@ -9,6 +9,7 @@ import QuizManager from "../components/QuizManager";
 import SubjectManager from "../components/SubjectManager";
 import TabLayout from "../components/TabLayout";
 import FeedbackButton from "../components/FeedbackButton";
+import ProfileButton from "../components/ProfileButton";
 import { useSession, signOut as nextAuthSignOut } from "next-auth/react";
 
 export default function Home() {
@@ -64,19 +65,11 @@ export default function Home() {
             💪 암기훈련소
           </h1>
           
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-3">
             {isLoading ? (
               <div className="text-sm text-[var(--neutral-500)]">로딩 중...</div>
             ) : user ? (
-              <>
-                <span className="text-sm text-[var(--neutral-700)]">{user.email}</span>
-                <button 
-                  onClick={handleLogout}
-                  className="px-3 py-1 text-sm bg-[var(--neutral-200)] hover:bg-[var(--neutral-300)] rounded-md transition-colors"
-                >
-                  로그아웃
-                </button>
-              </>
+              <ProfileButton />
             ) : (
               <>
                 <Link href="/login" className="px-3 py-1 text-sm bg-[var(--neutral-200)] hover:bg-[var(--neutral-300)] rounded-md transition-colors">

@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '@/utils/supabase-browser';
 
 export default function ResetPassword() {
   const [email, setEmail] = useState('');
@@ -23,13 +22,20 @@ export default function ResetPassword() {
       setLoading(true);
       setMessage(null);
       
-      const supabase = createClient();
-      
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?next=/update-password`,
+      // Next Auth 비밀번호 재설정 API 호출
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
       });
       
-      if (error) throw error;
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error);
+      }
       
       setMessage({ 
         type: 'success', 

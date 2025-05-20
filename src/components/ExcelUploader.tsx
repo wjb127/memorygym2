@@ -7,6 +7,7 @@ import SubjectSelector from './SubjectSelector';
 import { Subject } from '../utils/types';
 import * as XLSX from 'xlsx';
 import { usePremium } from '@/context/PremiumContext';
+import { useCards } from '@/context/CardContext';
 
 interface ExcelUploaderProps {
   onCardsAdded?: () => void;
@@ -28,6 +29,9 @@ export default function ExcelUploader({ onCardsAdded }: ExcelUploaderProps) {
   const { isPremium, currentPlan, canAddCard, getSubjectCardCount } = usePremium();
   const [canAddCardToSubject, setCanAddCardToSubject] = useState(true);
   const [cardCount, setCardCount] = useState(0);
+  
+  // 카드 상태 관리 컨텍스트 사용
+  const { refreshCards } = useCards();
   
   // 과목 목록 로드
   useEffect(() => {
@@ -198,6 +202,12 @@ export default function ExcelUploader({ onCardsAdded }: ExcelUploaderProps) {
       } else {
         setStatus('error');
         setMessage(`${success}개의 카드가 추가되었으며, ${failures}개의 카드가 실패했습니다.`);
+      }
+      
+      // 카드 상태 업데이트 (다른 컴포넌트에 알림)
+      if (success > 0) {
+        console.log('[ExcelUploader] 카드 추가 성공, refreshCards 호출');
+        refreshCards();
       }
       
       if (onCardsAdded) {

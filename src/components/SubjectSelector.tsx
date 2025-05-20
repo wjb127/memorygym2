@@ -51,6 +51,9 @@ export default function SubjectSelector({
     ? subjects 
     : [{ id: 1, created_at: new Date().toISOString(), name: '기본 과목', description: '시스템 기본 과목' }];
 
+  // 샘플 과목인지 확인하는 함수
+  const isSampleSubject = (id: number) => id < 0;
+
   return (
     <div className="mb-4">
       <label htmlFor="subject-selector" className="block text-sm font-medium mb-2 text-[var(--neutral-700)]">
@@ -67,7 +70,11 @@ export default function SubjectSelector({
           <option value="">과목 선택</option>
         )}
         {subjectsToDisplay.map((subject) => (
-          <option key={subject.id} value={subject.id}>
+          <option 
+            key={subject.id} 
+            value={subject.id}
+            className={isSampleSubject(subject.id) ? 'bg-[var(--neutral-200)] italic' : ''}
+          >
             {subject.name}
           </option>
         ))}
