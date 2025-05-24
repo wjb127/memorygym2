@@ -289,7 +289,7 @@ export default function QuizManager() {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="정답 또는 문제 검색"
+            placeholder="문제 또는 정답 검색"
             className="flex-1 px-4 py-3 border border-[var(--neutral-300)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)]"
           />
           <button
@@ -378,8 +378,8 @@ export default function QuizManager() {
               className="border border-[var(--neutral-300)] bg-[var(--neutral-100)] rounded-lg p-4 hover:border-[var(--primary)] transition-colors shadow-sm hover:shadow"
             >
               <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-2 gap-2">
-                <div className="font-medium">{quiz.front}</div>
-                <div className="text-[var(--neutral-700)]">{quiz.back}</div>
+                <div className="font-medium">{quiz.back}</div>
+                <div className="text-[var(--neutral-700)]">{quiz.front}</div>
               </div>
               
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-3">
@@ -440,8 +440,8 @@ export default function QuizManager() {
             <div className="mb-6">
               <p className="mb-2">정말 이 퀴즈를 삭제하시겠습니까?</p>
               <div className="bg-[var(--neutral-200)] p-4 rounded-lg text-sm">
-                <div><span className="font-medium">정답:</span> {quizToDelete?.front}</div>
                 <div><span className="font-medium">문제:</span> {quizToDelete?.back}</div>
+                <div><span className="font-medium">정답:</span> {quizToDelete?.front}</div>
               </div>
             </div>
             
@@ -471,21 +471,6 @@ export default function QuizManager() {
             
             <form onSubmit={confirmEdit} className="space-y-4">
               <div>
-                <label htmlFor="front" className="block text-sm font-medium mb-1">
-                  정답
-                </label>
-                <input
-                  type="text"
-                  id="front"
-                  name="front"
-                  value={editFormData.front}
-                  onChange={handleEditChange}
-                  className="w-full px-4 py-2 border border-[var(--neutral-300)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--secondary)] focus:border-[var(--secondary)]"
-                  required
-                />
-              </div>
-              
-              <div>
                 <label htmlFor="back" className="block text-sm font-medium mb-1">
                   문제
                 </label>
@@ -494,6 +479,21 @@ export default function QuizManager() {
                   id="back"
                   name="back"
                   value={editFormData.back}
+                  onChange={handleEditChange}
+                  className="w-full px-4 py-2 border border-[var(--neutral-300)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--secondary)] focus:border-[var(--secondary)]"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="front" className="block text-sm font-medium mb-1">
+                  정답
+                </label>
+                <input
+                  type="text"
+                  id="front"
+                  name="front"
+                  value={editFormData.front}
                   onChange={handleEditChange}
                   className="w-full px-4 py-2 border border-[var(--neutral-300)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--secondary)] focus:border-[var(--secondary)]"
                   required

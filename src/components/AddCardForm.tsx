@@ -177,11 +177,11 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
       const parts = line.split(',').map(part => part.trim());
       
       if (parts.length !== 2 || !parts[0] || !parts[1]) {
-        errors.push(`${i + 1}번째 줄: 올바른 형식이 아닙니다. (정답, 문제)`);
+        errors.push(`${i + 1}번째 줄: 올바른 형식이 아닙니다. (문제, 정답)`);
         continue;
       }
 
-      cards.push({ front: parts[0], back: parts[1] });
+      cards.push({ front: parts[1], back: parts[0] });
     }
 
     if (errors.length > 0) {
@@ -359,21 +359,6 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
             <>
               <div className="bg-[var(--neutral-100)] p-6 rounded-lg border border-[var(--neutral-300)] shadow-sm">
                 <div className="mb-4">
-                  <label htmlFor="front" className="block text-sm font-medium mb-2">
-                    💡 정답 (예: 단어)
-                  </label>
-                  <input
-                    type="text"
-                    id="front"
-                    value={front}
-                    onChange={(e) => setFront(e.target.value)}
-                    className="w-full px-4 py-3 border border-[var(--neutral-300)] rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)]"
-                    placeholder="정답이 되는 단어나 내용을 입력하세요"
-                    disabled={!canAddCardToSubject || isSubmitting}
-                  />
-                </div>
-                
-                <div>
                   <label htmlFor="back" className="block text-sm font-medium mb-2">
                     ❓ 문제 (예: 설명)
                   </label>
@@ -387,12 +372,27 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
                     disabled={!canAddCardToSubject || isSubmitting}
                   />
                 </div>
+                
+                <div>
+                  <label htmlFor="front" className="block text-sm font-medium mb-2">
+                    💡 정답 (예: 단어)
+                  </label>
+                  <input
+                    type="text"
+                    id="front"
+                    value={front}
+                    onChange={(e) => setFront(e.target.value)}
+                    className="w-full px-4 py-3 border border-[var(--neutral-300)] rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)]"
+                    placeholder="정답이 되는 단어나 내용을 입력하세요"
+                    disabled={!canAddCardToSubject || isSubmitting}
+                  />
+                </div>
               </div>
             </>
           ) : (
             <div className="bg-[var(--neutral-100)] p-6 rounded-lg border border-[var(--neutral-300)] shadow-sm">
               <label htmlFor="bulkText" className="block text-sm font-medium mb-2">
-                📚 대량 퀴즈 (정답, 문제 형식)
+                📚 대량 퀴즈 (문제, 정답 형식)
               </label>
               <textarea
                 id="bulkText"
@@ -400,15 +400,15 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
                 onChange={(e) => setBulkText(e.target.value)}
                 rows={8}
                 className="w-full px-4 py-3 border border-[var(--neutral-300)] rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)]"
-                placeholder="각 줄마다 한 개의 퀴즈를 추가합니다. 형식: 정답, 문제
+                placeholder="각 줄마다 한 개의 퀴즈를 추가합니다. 형식: 문제, 정답
 예시:
-apple, 사과는 영어로?
-book, 책은 영어로?
-computer, 컴퓨터는 영어로?"
+사과는 영어로?, apple
+책은 영어로?, book
+컴퓨터는 영어로?, computer"
                 disabled={!canAddCardToSubject || isSubmitting}
               />
               <p className="mt-2 text-sm text-[var(--neutral-700)]">
-                각 줄에 하나의 퀴즈를 정답과 문제를 쉼표로 구분하여 입력하세요.
+                각 줄에 하나의 퀴즈를 문제와 정답을 쉼표로 구분하여 입력하세요.
               </p>
             </div>
           )}

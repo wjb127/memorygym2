@@ -7,6 +7,7 @@ import FlashQuiz from './FlashQuiz';
 import SubjectSelector from './SubjectSelector';
 import { useCards } from '@/context/CardContext';
 import { registerUpdateBoxCountsFunction } from './QuizManagement';
+import { useSession } from 'next-auth/react';
 
 // 상자 번호에 따른 이모지 반환 함수
 const getBoxEmoji = (boxNumber: number): string => {
@@ -34,6 +35,10 @@ export default function StudySession() {
   
   // 카드 상태 변경 감지를 위한 컨텍스트 사용
   const { lastUpdated } = useCards();
+  
+  // 세션 상태 확인
+  const { data: session, status } = useSession();
+  const isLoggedIn = status === 'authenticated' && !!session;
 
   // 훈련소 번호나 과목이 변경되거나 학습이 재시작될 때 퀴즈 새로 로드
   useEffect(() => {
@@ -63,7 +68,9 @@ export default function StudySession() {
           counts[box] = Array.isArray(boxQuizzes) ? boxQuizzes.length : 0;
           console.log(`[StudySession] ${box}번 훈련소 퀴즈 수: ${counts[box]}개`);
         } catch (boxError) {
-          console.error(`[StudySession] ${box}번 훈련소 퀴즈 수 조회 오류:`, boxError);
+          // 에러의 상세 정보를 추출
+          const errorMessage = boxError instanceof Error ? boxError.message : String(boxError);
+          console.warn(`[StudySession] ${box}번 훈련소 퀴즈 수 조회 오류: ${errorMessage}`);
           // 오류가 발생해도 다음 훈련소 처리 계속 진행
           counts[box] = 0;
         }
@@ -72,7 +79,7 @@ export default function StudySession() {
       console.log('[StudySession] 훈련소별 퀴즈 수 업데이트 완료:', counts);
       setBoxCounts(counts);
     } catch (error) {
-      console.error('[StudySession] 훈련소별 퀴즈 수 업데이트 오류:', error);
+      console.warn('[StudySession] 훈련소별 퀴즈 수 업데이트 오류:', error);
       // 오류 발생 시 기존 상태 유지
     }
   }, [selectedSubject]);
@@ -108,7 +115,8 @@ export default function StudySession() {
       setCompleted(boxQuizzes.length === 0);
       setStats({ correct: 0, incorrect: 0 });
     } catch (error) {
-      console.error(`[StudySession] ${boxNumber}번 훈련소 퀴즈 로드 오류:`, error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.warn(`[StudySession] ${boxNumber}번 훈련소 퀴즈 로드 실패: ${errorMessage}`);
       // 오류 발생 시 빈 배열로 설정
       setQuizzes([]);
       setCompleted(true);
@@ -119,6 +127,8 @@ export default function StudySession() {
 
   const handleAnswer = async (quizId: number, isCorrect: boolean) => {
     try {
+      console.log(`[StudySession] 답변 처리: 카드 ID=${quizId}, 정답 여부=${isCorrect}, 로그인 상태=${isLoggedIn}`);
+      
       const updatedCard = await updateCardBox(quizId, isCorrect);
       
       // 통계 업데이트
@@ -146,7 +156,26 @@ export default function StudySession() {
       // 카드 상자 변경 후 훈련소별 퀴즈 수 업데이트
       updateBoxCounts();
     } catch (error) {
-      console.error('답변 처리 오류:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.warn(`[StudySession] 답변 처리 실패: ${errorMessage}`);
+      
+      // 비로그인 사용자의 경우 오류가 발생해도 계속 진행
+      if (!isLoggedIn) {
+        console.log('[StudySession] 비로그인 사용자 - 로컬에서만 진행');
+        
+        // 통계 업데이트
+        setStats(prev => ({
+          correct: prev.correct + (isCorrect ? 1 : 0),
+          incorrect: prev.incorrect + (isCorrect ? 0 : 1)
+        }));
+        
+        // 다음 퀴즈 또는 완료로 이동
+        if (currentQuizIndex < quizzes.length - 1) {
+          setCurrentQuizIndex(prevIndex => prevIndex + 1);
+        } else {
+          setCompleted(true);
+        }
+      }
     }
   };
 
@@ -244,6 +273,16 @@ export default function StudySession() {
           {getBoxEmoji(selectedBox || 0)} {selectedBox}단계 훈련소 완료!
         </h2>
         
+        {/* 비로그인 사용자를 위한 안내 메시지 */}
+        {!isLoggedIn && (
+          <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-sm text-blue-700">
+              💡 <strong>체험 모드</strong>로 훈련하고 계시네요!<br/>
+              로그인하시면 학습 진도가 저장되고, 나만의 카드를 추가할 수 있습니다.
+            </p>
+          </div>
+        )}
+        
         {quizzes.length > 0 ? (
           <div className="mb-8">
             <p className="text-lg mb-4">트레이닝 결과:</p>
@@ -272,6 +311,16 @@ export default function StudySession() {
                 {Math.round((stats.correct / (stats.correct + stats.incorrect)) * 100)}%
               </p>
             </div>
+            
+            {/* 비로그인 사용자를 위한 추가 설명 */}
+            {!isLoggedIn && (
+              <div className="mb-6 p-3 bg-gray-50 rounded-lg border">
+                <p className="text-sm text-gray-600">
+                  ✨ 정답한 카드는 다음 단계로, 틀린 카드는 1단계로 이동했습니다.<br/>
+                  (체험 모드에서는 실제 저장되지 않습니다)
+                </p>
+              </div>
+            )}
           </div>
         ) : (
           <div className="p-6 mb-8 bg-[var(--neutral-200)] rounded-lg inline-block">
@@ -281,7 +330,10 @@ export default function StudySession() {
                 : `${selectedBox}단계 훈련소에는 퀴즈가 없습니다.`}
             </p>
             <p className="text-sm mt-2 text-[var(--neutral-700)]">
-              '퀴즈추가' 탭에서 새로운 퀴즈를 추가해보세요!
+              {isLoggedIn 
+                ? "'퀴즈추가' 탭에서 새로운 퀴즈를 추가해보세요!"
+                : "로그인 후 '퀴즈추가' 탭에서 새로운 퀴즈를 추가할 수 있습니다!"
+              }
             </p>
           </div>
         )}
