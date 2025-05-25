@@ -39,12 +39,45 @@ export default function StudySession() {
   // 세션 상태 확인
   const { user, getAuthHeaders } = useAuth();
 
-  // 훈련소 번호나 과목이 변경되거나 학습이 재시작될 때 퀴즈 새로 로드
+  // 특정 훈련소의 퀴즈 로드 (과목별 필터링 지원)
+  const loadQuizzesByBox = useCallback(async (boxNumber: number, subjectId: number | null) => {
+    try {
+      setLoading(true);
+      console.log(`[StudySession] ${boxNumber}번 훈련소 퀴즈 로드 시작, 과목 ID: ${subjectId || '전체'}`);
+      
+      const authHeaders = user ? getAuthHeaders() : undefined;
+      const boxQuizzes = await getCardsByBox(boxNumber, subjectId || undefined, authHeaders);
+      
+      if (!Array.isArray(boxQuizzes)) {
+        console.error(`[StudySession] ${boxNumber}번 훈련소 퀴즈 로드 실패: 배열이 아닌 값 반환됨`);
+        setQuizzes([]);
+        setCompleted(true);
+        return;
+      }
+      
+      console.log(`[StudySession] ${boxNumber}번 훈련소 퀴즈 ${boxQuizzes.length}개 로드됨`);
+      setQuizzes(boxQuizzes);
+      setCurrentQuizIndex(0);
+      setCompleted(boxQuizzes.length === 0);
+      setStats({ correct: 0, incorrect: 0 });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.warn(`[StudySession] ${boxNumber}번 훈련소 퀴즈 로드 실패: ${errorMessage}`);
+      // 오류 발생 시 빈 배열로 설정
+      setQuizzes([]);
+      setCompleted(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, getAuthHeaders]);
+
+  // 훈련소 번호나 과목이 변경되거나 학습이 재시작될 때, 또는 카드가 추가/변경될 때 퀴즈 새로 로드
   useEffect(() => {
     if (studyStarted && selectedBox !== null) {
+      console.log('[StudySession] 퀴즈 목록 새로고침 트리거:', { selectedBox, selectedSubject, studyStarted, lastUpdated });
       loadQuizzesByBox(selectedBox, selectedSubject);
     }
-  }, [selectedBox, selectedSubject, studyStarted]);
+  }, [selectedBox, selectedSubject, studyStarted, lastUpdated, loadQuizzesByBox]);
 
   // 훈련소별 퀴즈 수 업데이트 함수
   const updateBoxCounts = useCallback(async () => {
@@ -94,38 +127,6 @@ export default function StudySession() {
   useEffect(() => {
     updateBoxCounts();
   }, [updateBoxCounts, lastUpdated]);
-
-  // 특정 훈련소의 퀴즈 로드 (과목별 필터링 지원)
-  const loadQuizzesByBox = async (boxNumber: number, subjectId: number | null) => {
-    try {
-      setLoading(true);
-      console.log(`[StudySession] ${boxNumber}번 훈련소 퀴즈 로드 시작, 과목 ID: ${subjectId || '전체'}`);
-      
-      const authHeaders = user ? getAuthHeaders() : undefined;
-      const boxQuizzes = await getCardsByBox(boxNumber, subjectId || undefined, authHeaders);
-      
-      if (!Array.isArray(boxQuizzes)) {
-        console.error(`[StudySession] ${boxNumber}번 훈련소 퀴즈 로드 실패: 배열이 아닌 값 반환됨`);
-        setQuizzes([]);
-        setCompleted(true);
-        return;
-      }
-      
-      console.log(`[StudySession] ${boxNumber}번 훈련소 퀴즈 ${boxQuizzes.length}개 로드됨`);
-      setQuizzes(boxQuizzes);
-      setCurrentQuizIndex(0);
-      setCompleted(boxQuizzes.length === 0);
-      setStats({ correct: 0, incorrect: 0 });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.warn(`[StudySession] ${boxNumber}번 훈련소 퀴즈 로드 실패: ${errorMessage}`);
-      // 오류 발생 시 빈 배열로 설정
-      setQuizzes([]);
-      setCompleted(true);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleAnswer = async (quizId: number, isCorrect: boolean) => {
     try {

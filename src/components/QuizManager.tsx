@@ -43,17 +43,23 @@ export default function QuizManager() {
     setLoading(true);
     try {
       console.log(`[QuizManager] 퀴즈 로딩 시작: ${selectedBox === 'all' ? '전체' : selectedBox}번 훈련소, 과목 ID: ${selectedSubject || '전체'}`);
+      console.log(`[QuizManager] 사용자 로그인 상태: ${!!user}, 이메일: ${user?.email}`);
       
       const authHeaders = user ? getAuthHeaders() : undefined;
+      console.log(`[QuizManager] 인증 헤더:`, authHeaders ? '있음' : '없음');
       
       if (selectedBox === 'all') {
         // 모든 퀴즈 로드
+        console.log(`[QuizManager] getAllCards 호출 중...`);
         const allQuizzes = await getAllCards(selectedSubject || undefined, authHeaders);
+        console.log(`[QuizManager] getAllCards 결과:`, { length: allQuizzes.length, isArray: Array.isArray(allQuizzes) });
         console.log(`[QuizManager] 전체 퀴즈 로드 완료: ${allQuizzes.length}개`);
         setQuizzes(allQuizzes);
       } else {
         // 특정 훈련소의 퀴즈만 로드
+        console.log(`[QuizManager] getCardsByBox(${selectedBox}, ${selectedSubject || undefined}) 호출 중...`);
         const boxQuizzes = await getCardsByBox(selectedBox as number, selectedSubject || undefined, authHeaders);
+        console.log(`[QuizManager] getCardsByBox 결과:`, { length: boxQuizzes.length, isArray: Array.isArray(boxQuizzes) });
         console.log(`[QuizManager] ${selectedBox}번 훈련소 퀴즈 로드 완료: ${boxQuizzes.length}개`);
         setQuizzes(boxQuizzes);
       }

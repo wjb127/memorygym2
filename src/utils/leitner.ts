@@ -492,6 +492,8 @@ export async function addCard(front: string, back: string, subjectId: number = 1
     }
     
     console.log(`[addCard] 카드 추가 API 호출: /api/subjects/${subjectId}/cards`);
+    console.log(`[addCard] 요청 헤더:`, headers);
+    console.log(`[addCard] 요청 바디:`, { front, back });
     
     const response = await fetch(`/api/subjects/${subjectId}/cards`, {
       method: 'POST',
@@ -502,6 +504,9 @@ export async function addCard(front: string, back: string, subjectId: number = 1
       body: JSON.stringify({ front, back }),
     });
     
+    console.log(`[addCard] 응답 상태: ${response.status} ${response.statusText}`);
+    console.log(`[addCard] 응답 헤더:`, Object.fromEntries(response.headers.entries()));
+    
     let errorDetail = '';
     let errorMessage = '';
     
@@ -509,6 +514,7 @@ export async function addCard(front: string, back: string, subjectId: number = 1
       try {
         // 에러 응답 본문 추출 시도
         const errorResponseText = await response.text();
+        console.log(`[addCard] 에러 응답 본문:`, errorResponseText);
         let errorResponse;
         
         try {
@@ -542,13 +548,25 @@ export async function addCard(front: string, back: string, subjectId: number = 1
       throw new Error(errorMessage);
     }
     
-    const data = await response.json();
+    const responseText = await response.text();
+    console.log(`[addCard] 성공 응답 본문:`, responseText);
+    
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error(`[addCard] 응답 JSON 파싱 오류:`, parseError);
+      throw new Error('서버 응답을 파싱할 수 없습니다');
+    }
+    
+    console.log(`[addCard] 파싱된 응답 데이터:`, data);
     
     if (data.data) {
       console.log('[addCard] 카드 추가 성공:', data.data);
       return data.data;
     } else {
       console.warn('[addCard] 카드 추가 실패: 응답에 유효한 데이터가 없음');
+      console.warn('[addCard] 전체 응답 데이터:', data);
       throw new Error('카드 추가 결과 데이터가 없습니다');
     }
   } catch (error) {

@@ -15,9 +15,11 @@ export function CardProvider({ children }: { children: ReactNode }) {
   
   // 카드 목록 새로고침 함수
   const refreshCards = useCallback(() => {
-    console.log('[CardContext] refreshCards 호출됨');
-    setLastUpdated(Date.now());
-  }, []);
+    const newTimestamp = Date.now();
+    console.log(`[CardContext] refreshCards 호출됨: ${new Date(newTimestamp).toLocaleTimeString()}`);
+    console.log(`[CardContext] 이전 lastUpdated: ${new Date(lastUpdated).toLocaleTimeString()}`);
+    setLastUpdated(newTimestamp);
+  }, [lastUpdated]);
   
   return (
     <CardContext.Provider value={{ lastUpdated, refreshCards }}>

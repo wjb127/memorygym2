@@ -5,6 +5,7 @@ import { Subject } from '../utils/types';
 import { getAllSubjects } from '../utils/leitner';
 import { SAMPLE_SUBJECTS } from '../utils/sample-data';
 import { useAuth } from '@/context/AuthProvider';
+import { useCards } from '@/context/CardContext';
 
 interface SubjectSelectorProps {
   selectedSubject: number | null;
@@ -20,6 +21,7 @@ export default function SubjectSelector({
   label = '과목'
 }: SubjectSelectorProps) {
   const { user, getAuthHeaders } = useAuth();
+  const { lastUpdated } = useCards(); // CardContext에서 lastUpdated 가져오기
   const [subjects, setSubjects] = useState<Subject[]>([]); // 초기값을 빈 배열로 설정
   const [loading, setLoading] = useState(true); // 초기 로딩을 true로 설정
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +80,7 @@ export default function SubjectSelector({
     };
 
     loadSubjects();
-  }, [user]);
+  }, [user, lastUpdated]); // lastUpdated를 의존성에 추가
 
   // 샘플 과목인지 확인하는 함수
   const isSampleSubject = (id: number) => id < 0;

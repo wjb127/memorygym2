@@ -1,6 +1,18 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { authenticateUser } from "@/utils/auth-helpers";
+import { createClient } from "@supabase/supabase-js";
+
+// Supabase 클라이언트 (서버용 - Service Role Key 사용)
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY! // Service Role Key 사용 (RLS 우회)
+);
+
+console.log('🔑 [Subjects Cards API] Supabase 클라이언트 설정:', {
+  url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+});
 
 // 과목별 카드 목록 조회
 export async function GET(
@@ -39,43 +51,36 @@ export async function GET(
     const boxParam = url.searchParams.get('box');
     console.log(`[API] 요청 파라미터: subjectId=${subjectId}, box=${boxParam || '전체'}, userId=${user.id}`);
     
-    // 기본 필터: 과목 ID 및 사용자 ID로 필터링
-    let queryFilter = `subject_id=eq.${subjectId}&user_id=eq.${user.id}`;
+    // Supabase Client를 사용하여 카드 목록 조회
+    let query = supabase
+      .from('flashcards')
+      .select('*')
+      .eq('subject_id', subjectId)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
     
     // 상자 필터링이 있는 경우 추가
     if (boxParam) {
       const boxNumber = parseInt(boxParam);
       if (!isNaN(boxNumber)) {
-        queryFilter += `&box_number=eq.${boxNumber}`;
+        query = query.eq('box_number', boxNumber);
+        console.log(`[API] 박스 필터링 적용: ${boxNumber}`);
       }
     }
 
-    // Supabase REST API를 통해 카드 목록 조회
-    const apiUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/flashcards?${queryFilter}&select=*&order=created_at.desc`;
-    console.log(`[API] Supabase API 호출: ${apiUrl}`);
-    
-    const response = await fetch(
-      apiUrl,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
-        }
-      }
-    );
+    const { data: cards, error } = await query;
 
-    if (!response.ok) {
-      console.error(`[API] 카드 목록 조회 오류: ${response.status} ${response.statusText}`);
+    if (error) {
+      console.error(`[API] 카드 목록 조회 오류:`, error);
       return NextResponse.json(
-        { error: "카드 목록 조회 중 오류가 발생했습니다." },
-        { status: response.status }
+        { error: "카드 목록 조회 중 오류가 발생했습니다.", details: error.message },
+        { status: 500 }
       );
     }
 
-    const cards = await response.json();
-    console.log(`[API] 카드 목록 조회 성공: ${cards.length}개 카드 반환`);
-    return NextResponse.json({ data: cards });
+    console.log(`[API] 카드 목록 조회 성공: ${cards?.length || 0}개 카드 반환`);
+    console.log(`[API] 카드 샘플:`, cards?.slice(0, 2)); // 처음 2개 카드만 로그
+    return NextResponse.json({ data: cards || [] });
   } catch (error) {
     console.error("[API] 카드 목록 조회 처리 중 오류:", error);
     return NextResponse.json(
@@ -133,45 +138,30 @@ export async function POST(
     // 현재 시간 생성
     const now = new Date().toISOString();
     
-    // Supabase REST API를 통해 카드 추가
-    const apiUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/flashcards`;
-    console.log(`[API] Supabase API 호출 (카드 추가): ${apiUrl}`);
-    
-    const response = await fetch(
-      apiUrl,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-          'Prefer': 'return=representation'
-        },
-        body: JSON.stringify({
-          front,
-          back,
-          subject_id: subjectId,
-          user_id: user.id,
-          box_number: 1, // 새 카드는 1번 상자에서 시작
-          created_at: now,
-          last_reviewed: now,
-          next_review: now
-        })
-      }
-    );
+    // Supabase Client를 사용하여 카드 추가
+    const { data: newCards, error } = await supabase
+      .from('flashcards')
+      .insert({
+        front,
+        back,
+        subject_id: subjectId,
+        user_id: user.id,
+        box_number: 1, // 새 카드는 1번 상자에서 시작
+        created_at: now,
+        last_reviewed: now,
+        next_review: now
+      })
+      .select();
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[API] 카드 추가 오류: ${response.status} ${response.statusText}`);
-      console.error(`[API] 카드 추가 오류 응답:`, errorText);
+    if (error) {
+      console.error(`[API] 카드 추가 오류:`, error);
       return NextResponse.json(
-        { error: "카드 추가 중 오류가 발생했습니다." },
-        { status: response.status }
+        { error: "카드 추가 중 오류가 발생했습니다.", details: error.message },
+        { status: 500 }
       );
     }
 
-    const data = await response.json();
-    const newCard = Array.isArray(data) && data.length > 0 ? data[0] : null;
+    const newCard = newCards && newCards.length > 0 ? newCards[0] : null;
 
     if (!newCard) {
       console.error(`[API] 카드 추가 결과 없음: 응답은 성공했지만 카드 데이터가 없음`);

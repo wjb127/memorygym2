@@ -36,9 +36,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         console.log('🔐 [Supabase Auth] 인증 상태 변경:', { event, session: !!session, user: session?.user?.email });
         
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
+        if (event === 'SIGNED_OUT') {
+          console.log('👋 [Supabase Auth] SIGNED_OUT 이벤트 처리');
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+        } else if (event === 'SIGNED_IN') {
+          console.log('👋 [Supabase Auth] SIGNED_IN 이벤트 처리');
+          setSession(session);
+          setUser(session?.user ?? null);
+          setLoading(false);
+        } else {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setLoading(false);
+        }
       }
     );
 
@@ -71,6 +83,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     try {
       console.log('🚪 [Supabase Auth] 로그아웃 시도');
+      console.log('🔍 [Supabase Auth] 현재 세션:', !!session);
+      console.log('🔍 [Supabase Auth] 현재 사용자:', user?.email);
+      
+      // 즉시 상태 초기화 (UI 반응성 향상)
+      setSession(null);
+      setUser(null);
+      setLoading(false);
+      console.log('🔄 [Supabase Auth] 클라이언트 상태 즉시 초기화');
+      
       const { error } = await supabase.auth.signOut();
       
       if (error) {
@@ -78,9 +99,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw error;
       }
       
-      console.log('✅ [Supabase Auth] 로그아웃 성공');
+      // 로컬 스토리지 정리 (혹시 남아있는 인증 관련 데이터 제거)
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+        // Supabase 관련 쿠키도 정리
+        document.cookie.split(";").forEach((c) => {
+          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        });
+        console.log('🧹 [Supabase Auth] 로컬 스토리지 및 쿠키 정리 완료');
+      } catch (storageError) {
+        console.warn('⚠️ [Supabase Auth] 스토리지 정리 중 경고:', storageError);
+      }
+      
+      console.log('✅ [Supabase Auth] 로그아웃 성공 - 상태 초기화 완료');
+      
+      // 확실한 상태 초기화를 위해 페이지 새로고침
+      console.log('🔄 [Supabase Auth] 페이지 새로고침 시작');
+      window.location.replace('/');
+      
     } catch (error) {
       console.error('💥 [Supabase Auth] 로그아웃 처리 중 오류:', error);
+      
+      // 오류가 발생해도 강제로 상태 초기화
+      setSession(null);
+      setUser(null);
+      setLoading(false);
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // 오류 발생 시에도 페이지 새로고침
+      window.location.replace('/');
+      
       throw error;
     }
   };

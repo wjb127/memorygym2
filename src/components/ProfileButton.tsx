@@ -8,8 +8,14 @@ import { useAuth } from '@/context/AuthProvider';
 export default function ProfileButton() {
   const { user, loading, signOut } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false); // 로그아웃 중 상태
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  // 상태 변화 추적용 로깅
+  useEffect(() => {
+    console.log('[ProfileButton] 상태 업데이트:', { user: !!user, userEmail: user?.email, loading, isSigningOut });
+  }, [user, loading, isSigningOut]);
 
   // 바깥쪽 클릭 시 드롭다운 닫기
   useEffect(() => {
@@ -27,15 +33,23 @@ export default function ProfileButton() {
 
   const handleSignOut = async () => {
     try {
+      console.log('[ProfileButton] 로그아웃 시작');
+      setIsSigningOut(true);
       await signOut();
+      console.log('[ProfileButton] 로그아웃 완료');
       setIsOpen(false);
+      
+      // AuthProvider에서 페이지 새로고침을 처리하므로 여기서는 제거
     } catch (error) {
-      console.error('로그아웃 오류:', error);
+      console.error('[ProfileButton] 로그아웃 오류:', error);
+      alert('로그아웃 중 오류가 발생했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsSigningOut(false);
     }
   };
 
-  // 로딩 중이거나 로그인되지 않은 경우는 표시하지 않음
-  if (loading || !user) {
+  // 로딩 중이거나 로그인되지 않은 경우, 또는 로그아웃 중인 경우는 표시하지 않음
+  if (loading || !user || isSigningOut) {
     return null;
   }
 

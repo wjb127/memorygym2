@@ -28,25 +28,17 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
   // 인증 상태 확인
   const { getAuthHeaders } = useAuth();
   
-  // 컴포넌트 마운트 시 기본 과목 확인
+  // 상태 변화 추적을 위한 로깅
   useEffect(() => {
-    const initDefaultSubject = async () => {
-      try {
-        // 기본 과목 확인 및 선택
-        const defaultSubjectId = await ensureDefaultSubject();
-        if (defaultSubjectId) {
-          console.log(`[AddCardForm] 기본 과목 설정: ID=${defaultSubjectId}`);
-          setSelectedSubject(defaultSubjectId);
-        }
-      } catch (error) {
-        console.error('[AddCardForm] 기본 과목 초기화 오류:', error);
-      }
-    };
-    
-    if (!selectedSubject) {
-      initDefaultSubject();
-    }
-  }, []);
+    console.log('🔄 [AddCardForm] 상태 변화:', {
+      selectedSubject,
+      isSubmitting,
+      hasSubject: selectedSubject !== null,
+      buttonDisabled: isSubmitting || !selectedSubject,
+      front: front?.substring(0, 10) + '...',
+      back: back?.substring(0, 10) + '...'
+    });
+  }, [selectedSubject, isSubmitting, front, back]);
 
   const resetForm = () => {
     setFront('');
@@ -58,27 +50,37 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🚀 [AddCardForm] handleSubmit 시작 - 폼 제출됨');
+    console.log('📝 [AddCardForm] 입력 모드:', inputMode);
+    console.log('💾 [AddCardForm] 입력 데이터:', { front, back, selectedSubject });
+    
     if (inputMode === 'bulk') {
+      console.log('📚 [AddCardForm] 대량 추가 모드로 전환');
       await handleBulkSubmit();
       return;
     }
 
     if (inputMode === 'excel') {
+      console.log('📊 [AddCardForm] 엑셀 모드 - 처리 안함');
       // 엑셀 모드에서는 ExcelUploader 컴포넌트에서 처리합니다
       return;
     }
 
     if (!front.trim() || !back.trim()) {
+      console.log('❌ [AddCardForm] 유효성 검사 실패 - 빈 필드');
       setSubmitStatus('error');
       setSubmitMessage('앞면과 뒷면을 모두 입력해주세요.');
       return;
     }
 
     if (selectedSubject === null) {
+      console.log('❌ [AddCardForm] 유효성 검사 실패 - 과목 선택 안됨');
       setSubmitStatus('error');
       setSubmitMessage('과목을 선택해주세요.');
       return;
     }
+
+    console.log('✅ [AddCardForm] 유효성 검사 통과 - API 호출 시작');
 
     try {
       setIsSubmitting(true);
@@ -88,6 +90,7 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
       
       // 인증 헤더 가져오기
       const authHeaders = getAuthHeaders();
+      console.log('🔑 [AddCardForm] 인증 헤더 생성:', authHeaders ? '성공' : '실패');
       
       const result = await addCard(front, back, selectedSubject, authHeaders);
       
@@ -98,11 +101,14 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
       setFront('');
       setBack('');
       
+      console.log('[AddCardForm] refreshCards 호출 전');
       // 카드 상태 업데이트 (컨텍스트 통해 다른 컴포넌트에 알림)
       refreshCards();
+      console.log('[AddCardForm] refreshCards 호출 후');
       
       // 훈련소 카운트 업데이트 함수 호출
       if (updateBoxCounts) {
+        console.log('[AddCardForm] updateBoxCounts 호출');
         updateBoxCounts();
       }
       
@@ -202,6 +208,7 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
         
         // 훈련소 카운트 업데이트 함수 호출
         if (updateBoxCounts) {
+          console.log('[AddCardForm] updateBoxCounts 호출');
           updateBoxCounts();
         }
       }
@@ -284,8 +291,8 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
           <SubjectSelector
             selectedSubject={selectedSubject}
             onSubjectChange={handleSubjectChange}
-            includeAllOption={false}
-            label="퀴즈를 추가할 과목"
+            includeAllOption={true}
+            label="퀴즈를 추가할 과목 선택"
           />
           
           {inputMode === 'single' ? (
@@ -378,11 +385,22 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
             <button
               type="submit"
               disabled={isSubmitting || !selectedSubject}
-              className={`px-5 py-3 text-sm font-medium rounded-lg shadow-sm text-white bg-[var(--primary)] hover:bg-[var(--primary-hover)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)] transition-colors ${
-                (isSubmitting || !selectedSubject) ? 'opacity-50 cursor-not-allowed' : ''
+              onClick={() => console.log('🖱️ [AddCardForm] 퀴즈 추가 버튼 클릭됨')}
+              className={`px-5 py-3 text-sm font-medium rounded-lg shadow-sm text-white transition-colors ${
+                (isSubmitting || !selectedSubject) 
+                  ? 'bg-gray-400 cursor-not-allowed opacity-75' 
+                  : 'bg-[var(--primary)] hover:bg-[var(--primary-hover)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)]'
               }`}
+              title={!selectedSubject ? '과목을 먼저 선택해주세요' : ''}
             >
-              {isSubmitting ? '⏳ 처리 중...' : inputMode === 'bulk' ? '📚 여러 퀴즈 추가' : '💪 퀴즈 추가'}
+              {isSubmitting 
+                ? '⏳ 처리 중...' 
+                : !selectedSubject 
+                  ? '과목을 선택해주세요' 
+                  : inputMode === 'bulk' 
+                    ? '📚 여러 퀴즈 추가' 
+                    : '💪 퀴즈 추가'
+              }
             </button>
           </div>
         </form>

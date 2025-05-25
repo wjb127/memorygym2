@@ -3,11 +3,16 @@ import { createClient } from '@supabase/supabase-js';
 
 console.log('🔥 [Cards API] 파일 로드됨');
 
-// Supabase 클라이언트 (서버용)
+// Supabase 클라이언트 (서버용 - Service Role Key 사용)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY! // Service Role Key 사용 (RLS 우회)
 );
+
+console.log('🔑 [Cards API] Supabase 클라이언트 설정:', {
+  url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+});
 
 // 샘플 카드 데이터
 const SAMPLE_CARDS = [
@@ -102,43 +107,48 @@ export async function GET(request: NextRequest) {
       console.log('🔐 [Cards API] 로그인된 사용자 - 실제 카드 데이터 조회');
       
       try {
-        // 박스 필터링을 위한 쿼리 구성
-        let queryFilter = `user_id=eq.${user.id}`;
+        // Supabase Client를 사용하여 카드 조회
+        let query = supabase
+          .from('flashcards')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        // 박스 필터링 적용
         if (box) {
           const boxNumber = parseInt(box);
           if (!isNaN(boxNumber)) {
-            queryFilter += `&box_number=eq.${boxNumber}`;
+            query = query.eq('box_number', boxNumber);
+            console.log('📦 [Cards API] 박스 필터링 적용:', boxNumber);
           }
         }
 
-        // Supabase REST API를 통해 실제 카드 조회
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/flashcards?${queryFilter}&select=*&order=created_at.desc`,
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-              'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
-            }
-          }
-        );
+        const { data: cards, error } = await query;
 
-        if (!response.ok) {
-          console.error('💥 [Cards API] Supabase API 오류:', response.statusText);
-          return NextResponse.json({ data: [] }); // 오류 시 빈 배열 반환
+        if (error) {
+          console.error('💥 [Cards API] Supabase 쿼리 오류:', error);
+          return NextResponse.json({ 
+            success: false, 
+            data: [],
+            error: error.message 
+          }, { status: 500 });
         }
 
-        const cards = await response.json();
-        console.log(`✅ [Cards API] 실제 카드 ${cards.length}개 반환`);
+        console.log(`✅ [Cards API] 실제 카드 ${cards?.length || 0}개 반환`);
+        console.log('🔍 [Cards API] 카드 샘플:', cards?.slice(0, 2)); // 처음 2개 카드만 로그
         
         return NextResponse.json({
           success: true,
-          data: cards,
-          total: cards.length
+          data: cards || [],
+          total: cards?.length || 0
         });
       } catch (error) {
         console.error('💥 [Cards API] 실제 카드 조회 오류:', error);
-        return NextResponse.json({ data: [] }); // 오류 시 빈 배열 반환
+        return NextResponse.json({ 
+          success: false, 
+          data: [],
+          error: '카드 조회 중 오류가 발생했습니다.' 
+        }, { status: 500 });
       }
     }
 
