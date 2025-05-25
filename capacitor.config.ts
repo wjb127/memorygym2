@@ -12,16 +12,18 @@ const config: CapacitorConfig = {
   android: {
     allowMixedContent: true,
     captureInput: true,
-    webContentsDebuggingEnabled: true,
-    loggingBehavior: 'debug'
+    webContentsDebuggingEnabled: false,
+    loggingBehavior: 'none',
+    backgroundColor: '#ffffff'
   },
   plugins: {
-    Browser: {
-      windowName: '_self',
-      presentationStyle: 'popover'
-    },
     App: {
       launchUrl: 'com.memorygym.flashcards'
+    },
+    SplashScreen: {
+      launchShowDuration: 2000,
+      backgroundColor: '#ffffff',
+      showSpinner: false
     }
   }
 };
