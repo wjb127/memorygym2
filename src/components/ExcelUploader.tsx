@@ -6,7 +6,6 @@ import { addCard, getAllSubjects } from '../utils/leitner';
 import SubjectSelector from './SubjectSelector';
 import { Subject } from '../utils/types';
 import * as XLSX from 'xlsx';
-import { usePremium } from '@/context/PremiumContext';
 import { useCards } from '@/context/CardContext';
 import { useAuth } from '@/context/AuthProvider';
 
@@ -26,11 +25,6 @@ export default function ExcelUploader({ onCardsAdded }: ExcelUploaderProps) {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // 프리미엄 상태 확인
-  const { isPremium, currentPlan, canAddCard, getSubjectCardCount } = usePremium();
-  const [canAddCardToSubject, setCanAddCardToSubject] = useState(true);
-  const [cardCount, setCardCount] = useState(0);
   
   // 카드 상태 관리 컨텍스트 사용
   const { refreshCards } = useCards();
@@ -71,21 +65,6 @@ export default function ExcelUploader({ onCardsAdded }: ExcelUploaderProps) {
     const foundSubject = subjects.find(subject => subject.id === id);
     return foundSubject ? foundSubject.name : `과목 ID: ${id}`;
   };
-  
-  // 선택한 과목이 변경될 때마다 카드 추가 가능 여부 확인
-  useEffect(() => {
-    const checkCardLimit = async () => {
-      if (!selectedSubject) return;
-      
-      const count = await getSubjectCardCount(selectedSubject);
-      setCardCount(count);
-      
-      const canAdd = await canAddCard(selectedSubject);
-      setCanAddCardToSubject(canAdd);
-    };
-    
-    checkCardLimit();
-  }, [selectedSubject, canAddCard, getSubjectCardCount]);
   
   const resetForm = () => {
     setFile(null);
@@ -139,23 +118,6 @@ export default function ExcelUploader({ onCardsAdded }: ExcelUploaderProps) {
   const handleUpload = async () => {
     if (!previewData.length) return;
     
-    // 무료 회원의 경우 카드 추가 가능 개수 확인
-    if (!isPremium && selectedSubject) {
-      const maxAllowed = currentPlan?.max_cards_per_subject || 100;
-      if (cardCount + previewData.length > maxAllowed) {
-        setStatus('error');
-        setMessage(`무료 회원은 과목당 최대 ${maxAllowed}개의 카드만 추가할 수 있습니다. 현재 ${cardCount}개가 있으므로 ${maxAllowed - cardCount}개만 추가할 수 있습니다. 프리미엄으로 업그레이드하세요.`);
-        return;
-      }
-    }
-    
-    // 카드 추가 가능 여부 확인
-    if (!canAddCardToSubject) {
-      setStatus('error');
-      setMessage(`이 과목에는 더 이상 카드를 추가할 수 없습니다. 무료 회원은 과목당 최대 ${currentPlan?.max_cards_per_subject || 100}개의 카드만 추가할 수 있습니다. 프리미엄으로 업그레이드하세요.`);
-      return;
-    }
-    
     setIsUploading(true);
     setStatus('uploading');
     setProgress(0);
@@ -184,7 +146,8 @@ export default function ExcelUploader({ onCardsAdded }: ExcelUploaderProps) {
         }
         
         try {
-          await addCard(card.front, card.back, subjectId);
+          const authHeaders = user ? getAuthHeaders() : undefined;
+          await addCard(card.front, card.back, subjectId, authHeaders);
           success++;
         } catch (error) {
           console.error('카드 추가 오류:', error);
@@ -194,14 +157,6 @@ export default function ExcelUploader({ onCardsAdded }: ExcelUploaderProps) {
         // 진행 상황 업데이트
         const newProgress = Math.round(((i + 1) / total) * 100);
         setProgress(newProgress);
-      }
-      
-      // 카드 카운트 업데이트
-      if (selectedSubject) {
-        const newCount = await getSubjectCardCount(selectedSubject);
-        setCardCount(newCount);
-        const canAdd = await canAddCard(selectedSubject);
-        setCanAddCardToSubject(canAdd);
       }
       
       if (failures === 0) {
@@ -237,13 +192,6 @@ export default function ExcelUploader({ onCardsAdded }: ExcelUploaderProps) {
   
   const handleSubjectChange = async (subjectId: number | null) => {
     setSelectedSubject(subjectId);
-    
-    if (subjectId) {
-      const count = await getSubjectCardCount(subjectId);
-      setCardCount(count);
-      const canAdd = await canAddCard(subjectId);
-      setCanAddCardToSubject(canAdd);
-    }
   };
   
   const getSubjectDisplay = (card: any): string => {
@@ -272,7 +220,7 @@ export default function ExcelUploader({ onCardsAdded }: ExcelUploaderProps) {
             accept=".xlsx,.xls,.csv"
             onChange={handleFileChange}
             className="w-full px-3 py-2 border border-[var(--neutral-300)] rounded-lg text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-[var(--primary)] file:text-white hover:file:bg-[var(--primary-hover)] transition-colors"
-            disabled={isUploading || !canAddCardToSubject}
+            disabled={isUploading}
           />
         </div>
         
@@ -282,16 +230,6 @@ export default function ExcelUploader({ onCardsAdded }: ExcelUploaderProps) {
           includeAllOption={false}
           label="카드를 추가할 기본 과목 (엑셀 파일에 과목 이름이 없는 경우 사용됨)"
         />
-        
-        {!isPremium && selectedSubject && (
-          <div className="mt-4 p-3 bg-[var(--neutral-200)] rounded-md text-sm">
-            <p className="font-medium">무료 플랜 제한</p>
-            <p className="mt-1 text-[var(--neutral-700)]">
-              현재 {cardCount}/{currentPlan?.max_cards_per_subject || 100} 카드를 사용 중입니다.
-              {!canAddCardToSubject && ' 더 이상 카드를 추가할 수 없습니다. 프리미엄으로 업그레이드하세요.'}
-            </p>
-          </div>
-        )}
         
         {status === 'preview' && previewData.length > 0 && (
           <div>
@@ -366,7 +304,7 @@ export default function ExcelUploader({ onCardsAdded }: ExcelUploaderProps) {
             type="button"
             onClick={resetForm}
             className="px-4 py-2 text-sm border border-[var(--neutral-300)] rounded-lg shadow-sm text-[var(--neutral-700)] bg-[var(--neutral-100)] hover:bg-[var(--neutral-200)] focus:outline-none transition-colors"
-            disabled={isUploading || !canAddCardToSubject}
+            disabled={isUploading}
           >
             초기화
           </button>
@@ -375,9 +313,9 @@ export default function ExcelUploader({ onCardsAdded }: ExcelUploaderProps) {
             <button
               type="button"
               onClick={handleUpload}
-              disabled={isUploading || !canAddCardToSubject || previewData.length === 0}
+              disabled={isUploading || previewData.length === 0}
               className={`px-5 py-2 text-sm font-medium rounded-lg shadow-sm text-white bg-[var(--primary)] hover:bg-[var(--primary-hover)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)] transition-colors ${
-                (isUploading || !canAddCardToSubject || previewData.length === 0) ? 'opacity-70 cursor-not-allowed' : ''
+                (isUploading || previewData.length === 0) ? 'opacity-70 cursor-not-allowed' : ''
               }`}
             >
               {isUploading ? '업로드 중...' : `${previewData.length}개 카드 추가하기`}

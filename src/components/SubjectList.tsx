@@ -319,7 +319,6 @@ export default function SubjectList({ onSubjectSelect, selectedSubjectId }: Subj
                     )}
                     
                     <div className="flex items-center space-x-4 text-sm text-[var(--neutral-600)]">
-                      <span>ID: {subject.id}</span>
                       {subject.created_at && (
                         <span>생성일: {new Date(subject.created_at).toLocaleDateString()}</span>
                       )}

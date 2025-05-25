@@ -431,10 +431,10 @@ export default function QuizManager() {
                   
                   {quiz.box_number > 1 && (
                     <button
-                      onClick={() => handleMoveQuiz(quiz.id, quiz.box_number - 1)}
-                      className="text-xs px-3 py-1.5 bg-orange-50 text-orange-700 rounded-md border border-orange-200 hover:bg-orange-100"
+                      onClick={() => handleMoveQuiz(quiz.id, 1)}
+                      className="text-xs px-3 py-1.5 bg-red-50 text-red-700 rounded-md border border-red-200 hover:bg-red-100"
                     >
-                      ⬇️ {quiz.box_number - 1}단계 훈련소로
+                      ⬇️ 1단계 훈련소로
                     </button>
                   )}
                   

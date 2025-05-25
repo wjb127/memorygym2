@@ -77,15 +77,6 @@ export default function ProfilePage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                사용자 ID
-              </label>
-              <div className="mt-1 p-3 bg-gray-50 border border-gray-300 rounded-md text-xs text-gray-500">
-                {user.id}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
                 로그인 제공자
               </label>
               <div className="mt-1 p-3 bg-gray-50 border border-gray-300 rounded-md">
@@ -118,14 +109,6 @@ export default function ProfilePage() {
               홈으로 돌아가기
             </Link>
           </div>
-        </div>
-
-        {/* Supabase 사용자 정보 */}
-        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-          <h3 className="text-sm font-medium text-blue-800">🔐 Supabase 계정</h3>
-          <p className="text-sm text-blue-700 mt-1">
-            Supabase Auth를 통해 안전하게 관리되는 계정입니다.
-          </p>
         </div>
       </div>
     </div>
