@@ -35,16 +35,10 @@ export default function SubjectSelector({
         
         console.log('[SubjectSelector] 과목 로드 시작');
         
-        // 타임아웃 설정으로 최대 3초만 기다림
-        const timeoutPromise = new Promise<Subject[]>((_, reject) => {
-          setTimeout(() => reject(new Error('Request timeout')), 3000);
-        });
-        
         const isLoggedIn = !!user;
         const authHeaders = isLoggedIn ? getAuthHeaders() : undefined;
-        const apiPromise = getAllSubjects(isLoggedIn, authHeaders);
         
-        const data = await Promise.race([apiPromise, timeoutPromise]);
+        const data = await getAllSubjects(isLoggedIn, authHeaders);
         
         if (Array.isArray(data)) {
           // 중복 제거: ID 기준으로 유니크한 과목만 유지
@@ -62,18 +56,39 @@ export default function SubjectSelector({
           // 샘플 데이터만 있는지 확인
           const hasOnlySampleData = uniqueSubjects.every((subject: Subject) => subject.id < 0);
           setUsingSampleData(hasOnlySampleData);
+          
+          // 로그인된 사용자인데 과목이 없는 경우
+          if (isLoggedIn && uniqueSubjects.length === 0) {
+            setError('과목이 없습니다. 새 과목을 추가해보세요.');
+          }
         } else {
-          console.warn('[SubjectSelector] API에서 유효한 과목 데이터를 받지 못함 - 샘플 데이터 설정');
-          setSubjects(SAMPLE_SUBJECTS);
-          setUsingSampleData(true);
+          console.warn('[SubjectSelector] API에서 유효한 과목 데이터를 받지 못함');
+          if (isLoggedIn) {
+            setError('과목 목록을 불러올 수 없습니다.');
+            setSubjects([]);
+            setUsingSampleData(false);
+          } else {
+            setSubjects(SAMPLE_SUBJECTS);
+            setUsingSampleData(true);
+          }
         }
       } catch (err) {
-        console.log('[SubjectSelector] API 로드 실패 - 샘플 데이터 설정:', err);
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        console.error('[SubjectSelector] API 로드 실패:', errorMessage);
         
-        // 오류 발생시 샘플 데이터 설정
-        setSubjects(SAMPLE_SUBJECTS);
-        setUsingSampleData(true);
-        setError(null); // 사용자에게는 오류 메시지를 보여주지 않음
+        const isLoggedIn = !!user;
+        
+        if (isLoggedIn) {
+          // 로그인된 사용자에게는 오류 메시지 표시
+          setError(errorMessage);
+          setSubjects([]);
+          setUsingSampleData(false);
+        } else {
+          // 비로그인 사용자에게는 샘플 데이터 제공
+          setSubjects(SAMPLE_SUBJECTS);
+          setUsingSampleData(true);
+          setError(null);
+        }
       } finally {
         setLoading(false);
       }
@@ -121,7 +136,53 @@ export default function SubjectSelector({
         {loading && <option disabled>로딩 중...</option>}
       </select>
       {error && (
-        <p className="mt-1 text-sm text-red-600">{error}</p>
+        <div className="mt-2 p-3 bg-red-50 rounded-lg border border-red-200">
+          <p className="text-sm text-red-800 mb-2">{error}</p>
+          {user && (
+            <button
+              onClick={() => {
+                setError(null);
+                setLoading(true);
+                // useEffect가 다시 실행되도록 강제로 상태 변경
+                const loadSubjects = async () => {
+                  try {
+                    const isLoggedIn = !!user;
+                    const authHeaders = isLoggedIn ? getAuthHeaders() : undefined;
+                    const data = await getAllSubjects(isLoggedIn, authHeaders);
+                    
+                    if (Array.isArray(data)) {
+                      const uniqueSubjects = data.reduce((acc: Subject[], current: Subject) => {
+                        const existingIndex = acc.findIndex((subject: Subject) => subject.id === current.id);
+                        if (existingIndex === -1) {
+                          acc.push(current);
+                        }
+                        return acc;
+                      }, []);
+                      
+                      setSubjects(uniqueSubjects);
+                      const hasOnlySampleData = uniqueSubjects.every((subject: Subject) => subject.id < 0);
+                      setUsingSampleData(hasOnlySampleData);
+                      
+                      if (isLoggedIn && uniqueSubjects.length === 0) {
+                        setError('과목이 없습니다. 새 과목을 추가해보세요.');
+                      }
+                    }
+                  } catch (err) {
+                    const errorMessage = err instanceof Error ? err.message : String(err);
+                    setError(errorMessage);
+                  } finally {
+                    setLoading(false);
+                  }
+                };
+                loadSubjects();
+              }}
+              className="text-xs bg-red-100 hover:bg-red-200 text-red-800 px-2 py-1 rounded transition-colors"
+              disabled={loading}
+            >
+              {loading ? '재시도 중...' : '다시 시도'}
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

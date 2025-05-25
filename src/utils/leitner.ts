@@ -82,76 +82,116 @@ const logError = <T>(message: string, error: any, defaultReturn: T): T => {
   return defaultReturn;
 };
 
-// 모든 과목 가져오기
+// 모든 과목 가져오기 (재시도 로직 포함)
 export async function getAllSubjects(isLoggedIn: boolean = false, headers?: Record<string, string>) {
-  try {
-    console.log('[getAllSubjects] API 호출 시작, 로그인 상태:', isLoggedIn);
-    
-    const requestHeaders = {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      ...headers
-    };
-    
-    console.log('[getAllSubjects] 요청 헤더:', requestHeaders);
-    
-    // 네트워크 요청을 시도하되, 실패 시 바로 샘플 데이터 반환
-    const response = await fetch('/api/subjects', {
-      credentials: 'include',
-      headers: requestHeaders,
-      // 타임아웃 설정 (5초)
-      signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined
-    });
-    
-    console.log(`[getAllSubjects] API 응답 상태: ${response.status}`);
-    
-    // 로그인 상태가 아니거나 오류 응답인 경우 샘플 과목 반환
-    if (response.status === 404 || response.status === 401 || !response.ok) {
-      console.log('[getAllSubjects] 로그인되지 않음 또는 API 오류 - 샘플 과목 반환');
-      return isLoggedIn ? [] : SAMPLE_SUBJECTS;  // 로그인된 경우 빈 배열 반환
-    }
-    
-    const data = await response.json();
-    
-    if (response.ok && data && typeof data === 'object') {
-      const apiSubjects = Array.isArray(data.data) ? data.data : [];
+  const maxRetries = 3;
+  const timeoutMs = 10000; // 10초로 증가
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`[getAllSubjects] API 호출 시작 (${attempt}/${maxRetries}), 로그인 상태:`, isLoggedIn);
       
-      if (isLoggedIn) {
-        // 로그인된 사용자에게는 실제 과목만 반환
-        console.log(`[getAllSubjects] 로그인 사용자 - API 과목 ${apiSubjects.length}개만 반환`);
-        return apiSubjects.sort((a: any, b: any) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
-      } else {
-        // 비로그인 사용자에게는 실제 과목 + 샘플 과목 함께 반환
-        console.log(`[getAllSubjects] 비로그인 사용자 - API 과목 ${apiSubjects.length}개 + 샘플 과목 ${SAMPLE_SUBJECTS.length}개 반환`);
-        
-        // 합친 배열을 ID 기준으로 정렬 (음수 ID인 샘플 과목은 뒤로)
-        return [...apiSubjects, ...SAMPLE_SUBJECTS].sort((a, b) => {
-          // 샘플 과목(음수 ID)은 항상 실제 과목(양수 ID) 뒤에 오도록
-          if (a.id < 0 && b.id > 0) return 1;
-          if (a.id > 0 && b.id < 0) return -1;
-          // 같은 종류끼리는 생성일 기준 정렬
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      const requestHeaders = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...headers
+      };
+      
+      console.log('[getAllSubjects] 요청 헤더:', requestHeaders);
+      
+      // AbortController를 사용한 타임아웃 설정
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      
+      try {
+        const response = await fetch('/api/subjects', {
+          credentials: 'include',
+          headers: requestHeaders,
+          signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
+        console.log(`[getAllSubjects] API 응답 상태 (${attempt}/${maxRetries}): ${response.status}`);
+        
+        // 로그인 상태가 아니거나 인증 오류인 경우
+        if (response.status === 404 || response.status === 401) {
+          console.log('[getAllSubjects] 인증 오류 - 적절한 데이터 반환');
+          return isLoggedIn ? [] : SAMPLE_SUBJECTS;
+        }
+        
+        // 서버 오류인 경우 재시도
+        if (response.status >= 500 && attempt < maxRetries) {
+          console.warn(`[getAllSubjects] 서버 오류 (${response.status}) - ${maxRetries - attempt}회 재시도 남음`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // 지수 백오프
+          continue;
+        }
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data && typeof data === 'object') {
+          const apiSubjects = Array.isArray(data.data) ? data.data : [];
+          
+          if (isLoggedIn) {
+            // 로그인된 사용자에게는 실제 과목만 반환
+            console.log(`[getAllSubjects] 로그인 사용자 - API 과목 ${apiSubjects.length}개 반환 (${attempt}/${maxRetries})`);
+            return apiSubjects.sort((a: any, b: any) => 
+              new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            );
+          } else {
+            // 비로그인 사용자에게는 실제 과목 + 샘플 과목 함께 반환
+            console.log(`[getAllSubjects] 비로그인 사용자 - API 과목 ${apiSubjects.length}개 + 샘플 과목 ${SAMPLE_SUBJECTS.length}개 반환`);
+            
+            return [...apiSubjects, ...SAMPLE_SUBJECTS].sort((a, b) => {
+              if (a.id < 0 && b.id > 0) return 1;
+              if (a.id > 0 && b.id < 0) return -1;
+              return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            });
+          }
+        } else {
+          throw new Error('API 응답 형식이 올바르지 않음');
+        }
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        throw fetchError;
       }
-    } else {
-      console.warn('[getAllSubjects] API 응답 형식이 올바르지 않음 - 샘플 과목 반환');
-      return isLoggedIn ? [] : SAMPLE_SUBJECTS;  // 로그인된 경우 빈 배열 반환
+      
+    } catch (error) {
+      const isLastAttempt = attempt === maxRetries;
+      const isTimeoutError = error instanceof DOMException && error.name === 'AbortError';
+      const isNetworkError = error instanceof TypeError && error.message.includes('Failed to fetch');
+      
+      console.warn(`[getAllSubjects] 시도 ${attempt}/${maxRetries} 실패:`, {
+        error: error instanceof Error ? error.message : String(error),
+        isTimeoutError,
+        isNetworkError,
+        isLastAttempt
+      });
+      
+      // 마지막 시도가 아니고 재시도 가능한 오류인 경우
+      if (!isLastAttempt && (isTimeoutError || isNetworkError)) {
+        console.log(`[getAllSubjects] ${maxRetries - attempt}회 재시도 남음 - 잠시 후 재시도`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // 지수 백오프
+        continue;
+      }
+      
+      // 마지막 시도 실패 또는 재시도 불가능한 오류
+      if (isLoggedIn) {
+        console.error('[getAllSubjects] 로그인된 사용자의 과목 로드 최종 실패 - 빈 배열 반환');
+        // 로그인된 사용자에게는 오류를 throw하여 UI에서 적절한 오류 메시지 표시
+        throw new Error('과목 목록을 불러오는데 실패했습니다. 네트워크 연결을 확인해주세요.');
+      } else {
+        console.warn('[getAllSubjects] 비로그인 사용자 - 샘플 과목으로 대체');
+        return SAMPLE_SUBJECTS;
+      }
     }
-  } catch (error) {
-    // 네트워크 오류, 타임아웃, CORS 오류 등 모든 예외 상황에서 샘플 데이터 반환
-    console.warn('[getAllSubjects] 네트워크 요청 실패 - 샘플 과목으로 대체:', error);
-    
-    // 에러 타입별로 더 구체적인 로그
-    if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-      console.warn('[getAllSubjects] 네트워크 연결 실패 또는 CORS 오류');
-    } else if (error instanceof DOMException && error.name === 'AbortError') {
-      console.warn('[getAllSubjects] 요청 타임아웃');
-    }
-    
-    return isLoggedIn ? [] : SAMPLE_SUBJECTS;  // 로그인된 경우 빈 배열 반환
   }
+  
+  // 이 지점에 도달하면 안 되지만, 안전장치
+  return isLoggedIn ? [] : SAMPLE_SUBJECTS;
 }
 
 // 특정 ID의 과목 가져오기

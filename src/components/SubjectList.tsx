@@ -32,6 +32,8 @@ export default function SubjectList({ onSubjectSelect, selectedSubjectId }: Subj
   // 과목 목록 불러오기
   const loadSubjects = async () => {
     setIsLoading(true);
+    setError(null);
+    
     try {
       const isLoggedIn = !!user;
       const authHeaders = isLoggedIn ? getAuthHeaders() : undefined;
@@ -55,9 +57,25 @@ export default function SubjectList({ onSubjectSelect, selectedSubjectId }: Subj
       
       console.log('[SubjectList] 과목 로드 완료:', uniqueSubjects.length + '개');
       setSubjects(uniqueSubjects);
+      
+      // 로그인된 사용자인데 과목이 없는 경우
+      if (isLoggedIn && uniqueSubjects.length === 0) {
+        setError('과목이 없습니다. 위 폼을 통해 새 과목을 추가해보세요.');
+      }
     } catch (error) {
-      console.error('과목 로드 실패:', error);
-      setSubjects([]);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('[SubjectList] 과목 로드 실패:', errorMessage);
+      
+      const isLoggedIn = !!user;
+      
+      if (isLoggedIn) {
+        setError(errorMessage);
+        setSubjects([]);
+      } else {
+        // 비로그인 사용자는 샘플 데이터 사용
+        setSubjects([]);
+        setError(null);
+      }
     } finally {
       setIsLoading(false);
     }
