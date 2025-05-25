@@ -6,7 +6,7 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 
 export default function ProfilePage() {
-  const { user, session, loading, signOut } = useAuth();
+  const { user, session, loading, signOut, deleteAccount } = useAuth();
   const router = useRouter();
   const isAuthenticated = !!user && !!session;
 
@@ -40,6 +40,32 @@ export default function ProfilePage() {
       router.push('/');
     } catch (error) {
       console.error('로그아웃 오류:', error);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const confirmText = prompt('계정을 삭제하려면 "계정삭제"를 입력하세요:');
+    
+    if (confirmText !== '계정삭제') {
+      alert('정확히 "계정삭제"를 입력해주세요.');
+      return;
+    }
+
+    const finalConfirm = confirm(
+      `정말로 계정을 삭제하시겠습니까?\n\n삭제될 데이터:\n• 모든 학습 기록\n• 생성한 모든 과목과 퀴즈\n• 플래시카드 데이터\n• 프리미엄 구독 정보\n• 계정 정보 및 설정\n\n이 작업은 되돌릴 수 없습니다.`
+    );
+
+    if (!finalConfirm) {
+      return;
+    }
+
+    try {
+      await deleteAccount();
+      alert('계정이 성공적으로 삭제되었습니다.');
+      router.push('/');
+    } catch (error) {
+      console.error('계정 삭제 오류:', error);
+      alert('계정 삭제 중 오류가 발생했습니다. 다시 시도해주세요.');
     }
   };
 
@@ -100,6 +126,13 @@ export default function ProfilePage() {
               className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
             >
               로그아웃
+            </button>
+            
+            <button
+              onClick={handleDeleteAccount}
+              className="w-full bg-red-800 text-white py-2 px-4 rounded-md hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-700 border-2 border-red-600"
+            >
+              ⚠️ 계정 삭제
             </button>
             
             <Link
