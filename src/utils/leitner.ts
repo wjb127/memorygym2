@@ -85,7 +85,7 @@ const logError = <T>(message: string, error: any, defaultReturn: T): T => {
 // 모든 과목 가져오기 (재시도 로직 포함)
 export async function getAllSubjects(isLoggedIn: boolean = false, headers?: Record<string, string>) {
   const maxRetries = 3;
-  const timeoutMs = 10000; // 10초로 증가
+  const timeoutMs = 30000; // 30초로 변경 (업계 표준)
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -351,8 +351,8 @@ export async function getCardsByBox(boxNumber: number, subjectId?: number, heade
     const response = await fetch(url, {
       credentials: 'include',
       headers: requestHeaders,
-      // 타임아웃 설정 (5초로 단축)
-      signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined
+      // 타임아웃 설정 (15초 - 카드 데이터는 상대적으로 빠르게 처리)
+      signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined
     });
     
     console.log(`[getCardsByBox] 응답 상태: ${response.status} ${response.statusText}`);
