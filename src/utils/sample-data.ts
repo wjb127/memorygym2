@@ -67,6 +67,83 @@ export const SAMPLE_ENGLISH_CARDS: FlashQuiz[] = [
     next_review: new Date().toISOString()
   },
   {
+    id: -110,
+    front: 'Dog',
+    back: '개',
+    box_number: 1,
+    subject_id: -1,
+    user_id: 'sample',
+    created_at: new Date().toISOString(),
+    last_reviewed: new Date().toISOString(),
+    next_review: new Date().toISOString()
+  },
+  {
+    id: -111,
+    front: 'Cat',
+    back: '고양이',
+    box_number: 1,
+    subject_id: -1,
+    user_id: 'sample',
+    created_at: new Date().toISOString(),
+    last_reviewed: new Date().toISOString(),
+    next_review: new Date().toISOString()
+  },
+  {
+    id: -112,
+    front: 'Water',
+    back: '물',
+    box_number: 1,
+    subject_id: -1,
+    user_id: 'sample',
+    created_at: new Date().toISOString(),
+    last_reviewed: new Date().toISOString(),
+    next_review: new Date().toISOString()
+  },
+  {
+    id: -113,
+    front: 'House',
+    back: '집',
+    box_number: 1,
+    subject_id: -1,
+    user_id: 'sample',
+    created_at: new Date().toISOString(),
+    last_reviewed: new Date().toISOString(),
+    next_review: new Date().toISOString()
+  },
+  {
+    id: -114,
+    front: 'Car',
+    back: '자동차',
+    box_number: 1,
+    subject_id: -1,
+    user_id: 'sample',
+    created_at: new Date().toISOString(),
+    last_reviewed: new Date().toISOString(),
+    next_review: new Date().toISOString()
+  },
+  {
+    id: -115,
+    front: 'School',
+    back: '학교',
+    box_number: 1,
+    subject_id: -1,
+    user_id: 'sample',
+    created_at: new Date().toISOString(),
+    last_reviewed: new Date().toISOString(),
+    next_review: new Date().toISOString()
+  },
+  {
+    id: -116,
+    front: 'Friend',
+    back: '친구',
+    box_number: 1,
+    subject_id: -1,
+    user_id: 'sample',
+    created_at: new Date().toISOString(),
+    last_reviewed: new Date().toISOString(),
+    next_review: new Date().toISOString()
+  },
+  {
     id: -104,
     front: 'Desk',
     back: '책상',
@@ -151,6 +228,39 @@ export const SAMPLE_MATH_CARDS: FlashQuiz[] = [
     id: -202,
     front: '빼기',
     back: '한 수에서 다른 수를 제거하는 연산 (-)',
+    box_number: 1,
+    subject_id: -2,
+    user_id: 'sample',
+    created_at: new Date().toISOString(),
+    last_reviewed: new Date().toISOString(),
+    next_review: new Date().toISOString()
+  },
+  {
+    id: -210,
+    front: '자연수',
+    back: '1, 2, 3, 4, 5... 처럼 1부터 시작하는 수',
+    box_number: 1,
+    subject_id: -2,
+    user_id: 'sample',
+    created_at: new Date().toISOString(),
+    last_reviewed: new Date().toISOString(),
+    next_review: new Date().toISOString()
+  },
+  {
+    id: -211,
+    front: '홀수',
+    back: '2로 나누어 떨어지지 않는 수 (1, 3, 5, 7...)',
+    box_number: 1,
+    subject_id: -2,
+    user_id: 'sample',
+    created_at: new Date().toISOString(),
+    last_reviewed: new Date().toISOString(),
+    next_review: new Date().toISOString()
+  },
+  {
+    id: -212,
+    front: '짝수',
+    back: '2로 나누어 떨어지는 수 (2, 4, 6, 8...)',
     box_number: 1,
     subject_id: -2,
     user_id: 'sample',

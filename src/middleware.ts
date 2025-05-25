@@ -1,88 +1,59 @@
-import { auth } from "./auth";
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
-// 인증이 필요 없는 공개 경로 설정
-const PUBLIC_PATHS = [
-  '/',
-  '/login',
-  '/signup',
-  '/reset-password',
-  '/api/auth/',
-  '/api/webhook/',
-  '/_next/',
-  '/favicon.ico',
-  '/public/'
-];
+// 인증이 필요한 경로들
+const protectedPaths = ['/admin', '/dashboard'];
 
-// 인증이 필요한 경로 설정
-const PROTECTED_PATHS = [
-  '/api/profile',
+// 공개 경로들 (인증 불필요)
+const publicPaths = [
+  '/', 
+  '/login', 
+  '/signup', 
+  '/api/cards', 
   '/api/subjects',
-  '/api/cards',
-  '/api/premium',
-  '/premium'
+  '/terms',
+  '/privacy',
+  '/refund-policy',
+  '/service'
 ];
 
 export async function middleware(request: NextRequest) {
-  try {
-    const currentPath = request.nextUrl.pathname;
-    console.log('[Middleware] 요청 경로:', currentPath);
-    
-    // 인증 확인이 필요한 경로인지 확인
-    const isPublicPath = PUBLIC_PATHS.some(path => currentPath.startsWith(path));
-    
-    // 공개 경로이면서 API가 아닌 경우 인증 없이 통과
-    if (isPublicPath && !currentPath.startsWith('/api/')) {
-      console.log('[Middleware] 공개 경로 접근:', currentPath);
-      return NextResponse.next();
-    }
-    
-    // 보호된 경로 또는 API 요청인 경우 세션 확인
-    const isProtectedPath = PROTECTED_PATHS.some(path => currentPath.startsWith(path));
-    
-    if (isProtectedPath || currentPath.startsWith('/api/')) {
-      console.log('[Middleware] 보호된 경로 또는 API 요청:', currentPath);
-      
-      // Next Auth 세션 확인은 auth 설정의 authorized 콜백에서 처리됨
-      // 미들웨어에서는 세션 토큰만 검증하고 통과시킴
-      const authHeader = request.headers.get('authorization');
-      const cookieHeader = request.headers.get('cookie');
-      
-      // API 요청인데 인증 헤더나 쿠키가 없는 경우
-      if (currentPath.startsWith('/api/') && !authHeader && !cookieHeader) {
-        console.log('[Middleware] API 요청 인증 정보 없음');
-        return NextResponse.json(
-          { error: '로그인이 필요합니다.' },
-          { status: 401 }
-        );
-      }
-    }
-    
-    return NextResponse.next();
-  } catch (error) {
-    console.error('[Middleware] 오류:', error);
-    
-    if (request.nextUrl.pathname.startsWith('/api/')) {
-      return NextResponse.json(
-        { error: '미들웨어 처리 중 오류가 발생했습니다.' },
-        { status: 500 }
-      );
-    }
-    
+  const pathname = request.nextUrl.pathname;
+  
+  console.log(`[Middleware] 요청 경로: ${pathname}`);
+  
+  // 정적 리소스는 통과
+  if (pathname.startsWith('/_next/') || 
+      pathname.startsWith('/favicon') ||
+      pathname.includes('.')) {
     return NextResponse.next();
   }
+  
+  // 공개 경로는 모두 허용
+  if (publicPaths.includes(pathname) || pathname.startsWith('/api/')) {
+    console.log(`[Middleware] 공개 경로 접근: ${pathname}`);
+    return NextResponse.next();
+  }
+  
+  // 보호된 경로 체크 (현재는 없음)
+  if (protectedPaths.some(path => pathname.startsWith(path))) {
+    console.log(`[Middleware] 보호된 경로 접근 시도: ${pathname}`);
+    // 향후 관리자 페이지 등에서 사용할 수 있음
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+  
+  return NextResponse.next();
 }
 
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
+     * 다음 경로들을 제외한 모든 요청 경로에 매치:
+     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public (public files)
      */
-    '/((?!_next/static|_next/image|favicon.ico|public).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
-}; 
+} 

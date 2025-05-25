@@ -1,37 +1,74 @@
-import { getToken } from "next-auth/jwt";
+import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
 export async function GET(request: NextRequest) {
   try {
-    // Next Auth 토큰 확인
-    const token = await getToken({ 
-      req: request, 
-      secret: process.env.NEXTAUTH_SECRET 
-    });
+    // Authorization 헤더에서 JWT 토큰 추출
+    const authHeader = request.headers.get('authorization');
     
-    if (!token) {
-      return NextResponse.json(
-        { error: "인증되지 않은 요청입니다." },
-        { status: 401 }
-      );
+    // 비로그인 사용자에게는 기본 프로필 반환
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({
+        id: null,
+        email: null,
+        name: 'Guest',
+        provider: 'none',
+        is_premium: false,
+        premium_until: null,
+        created_at: null,
+        last_sign_in_at: null
+      });
     }
 
-    // 실제 구현에서는 데이터베이스에서 프로필 정보를 가져와야 합니다
-    // 현재는 테스트용 더미 데이터 반환
+    const token = authHeader.substring(7);
+    
+    // Supabase JWT 토큰 검증
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    // 토큰 검증 실패 시에도 기본 프로필 반환
+    if (error || !user) {
+      console.log('[GET /api/profile] 토큰 검증 실패, 기본 프로필 반환');
+      return NextResponse.json({
+        id: null,
+        email: null,
+        name: 'Guest',
+        provider: 'none',
+        is_premium: false,
+        premium_until: null,
+        created_at: null,
+        last_sign_in_at: null
+      });
+    }
+
+    // 사용자 프로필 정보 반환
     return NextResponse.json({
-      id: token.id,
-      email: token.email,
-      name: token.name,
-      is_premium: false,
+      id: user.id,
+      email: user.email,
+      name: user.user_metadata?.name || user.user_metadata?.full_name || 'Unknown',
+      provider: user.app_metadata?.provider || 'unknown',
+      is_premium: false, // TODO: 실제 프리미엄 상태 조회
       premium_until: null,
-      created_at: new Date().toISOString()
+      created_at: user.created_at,
+      last_sign_in_at: user.last_sign_in_at
     });
   } catch (error) {
     console.error("프로필 정보 가져오기 오류:", error);
-    return NextResponse.json(
-      { error: "프로필 정보를 가져오는 중 오류가 발생했습니다." },
-      { status: 500 }
-    );
+    // 오류 발생 시에도 기본 프로필 반환
+    return NextResponse.json({
+      id: null,
+      email: null,
+      name: 'Guest',
+      provider: 'none',
+      is_premium: false,
+      premium_until: null,
+      created_at: null,
+      last_sign_in_at: null
+    });
   }
 } 

@@ -1,7 +1,7 @@
-import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { supabase } from '@/utils/supabase-client';
+import { authenticateUser } from "@/utils/auth-helpers";
 
 export async function GET(
   request: NextRequest,
@@ -20,24 +20,23 @@ export async function GET(
       );
     }
 
-    // Next Auth 토큰 확인
-    const token = await getToken({ 
-      req: request, 
-      secret: process.env.NEXTAUTH_SECRET 
-    });
-    
-    if (!token) {
+    // Supabase 인증 확인
+    const authResult = await authenticateUser(request);
+    if (authResult.error) {
       return NextResponse.json(
         { error: "인증되지 않은 요청입니다." },
-        { status: 401 }
+        { status: authResult.status }
       );
     }
 
-    // Supabase에서 해당 과목의 카드 수 쿼리
+    const user = authResult.user!;
+
+    // Supabase에서 해당 과목의 카드 수 쿼리 (사용자 ID 필터링 추가)
     const { count, error } = await supabase
       .from('flashcards')
       .select('*', { count: 'exact', head: true })
-      .eq('subject_id', subjectId);
+      .eq('subject_id', subjectId)
+      .eq('user_id', user.id);
     
     if (error) {
       console.error("카드 수 쿼리 오류:", error);

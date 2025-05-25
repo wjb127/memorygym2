@@ -5,6 +5,7 @@ import { getCardsByBox, updateCardBox, deleteCard, updateCard, getAllCards, sear
 import { FlashQuiz, BOX_NAMES } from '../utils/types';
 import SubjectSelector from './SubjectSelector';
 import { useCards } from '@/context/CardContext';
+import { useAuth } from '@/context/AuthProvider';
 
 // 상자 번호에 따른 이모지 반환 함수
 const getBoxEmoji = (boxNumber: number): string => {
@@ -34,6 +35,7 @@ export default function QuizManager() {
   
   // 퀴즈 상태 관리 컨텍스트 사용
   const { lastUpdated, refreshCards } = useCards();
+  const { user, getAuthHeaders } = useAuth();
 
   const loadQuizzes = useCallback(async () => {
     if (selectedBox === null) return;
@@ -42,14 +44,16 @@ export default function QuizManager() {
     try {
       console.log(`[QuizManager] 퀴즈 로딩 시작: ${selectedBox === 'all' ? '전체' : selectedBox}번 훈련소, 과목 ID: ${selectedSubject || '전체'}`);
       
+      const authHeaders = user ? getAuthHeaders() : undefined;
+      
       if (selectedBox === 'all') {
         // 모든 퀴즈 로드
-        const allQuizzes = await getAllCards(selectedSubject || undefined);
+        const allQuizzes = await getAllCards(selectedSubject || undefined, authHeaders);
         console.log(`[QuizManager] 전체 퀴즈 로드 완료: ${allQuizzes.length}개`);
         setQuizzes(allQuizzes);
       } else {
         // 특정 훈련소의 퀴즈만 로드
-        const boxQuizzes = await getCardsByBox(selectedBox as number, selectedSubject || undefined);
+        const boxQuizzes = await getCardsByBox(selectedBox as number, selectedSubject || undefined, authHeaders);
         console.log(`[QuizManager] ${selectedBox}번 훈련소 퀴즈 로드 완료: ${boxQuizzes.length}개`);
         setQuizzes(boxQuizzes);
       }
@@ -60,7 +64,7 @@ export default function QuizManager() {
     } finally {
       setLoading(false);
     }
-  }, [selectedBox, selectedSubject]);
+  }, [selectedBox, selectedSubject, user, getAuthHeaders]);
 
   const updateTotalQuizzes = useCallback(async () => {
     try {
@@ -74,11 +78,13 @@ export default function QuizManager() {
         5: 0,
       };
       
+      const authHeaders = user ? getAuthHeaders() : undefined;
+      
       // 모든 훈련소의 퀴즈 개수를 병렬로 가져오기
       const promises = Array.from({ length: 5 }, (_, i) => i + 1).map(async (box) => {
         try {
           console.log(`[QuizManager] ${box}번 훈련소 퀴즈 수 조회 요청 중...`);
-          const boxQuizzes = await getCardsByBox(box, selectedSubject || undefined);
+          const boxQuizzes = await getCardsByBox(box, selectedSubject || undefined, authHeaders);
           
           // 결과가 배열인지 확인
           if (!Array.isArray(boxQuizzes)) {
@@ -114,7 +120,7 @@ export default function QuizManager() {
       console.error('[QuizManager] 퀴즈 개수 업데이트 오류:', error);
       // 오류 발생 시 기존 값 유지
     }
-  }, [selectedSubject]);
+  }, [selectedSubject, user, getAuthHeaders]);
 
   useEffect(() => {
     // 검색 모드가 아닐 때만 퀴즈 로드
@@ -148,9 +154,11 @@ export default function QuizManager() {
 
   const handleMoveQuiz = async (quizId: number, targetBox: number) => {
     try {
+      const authHeaders = user ? getAuthHeaders() : undefined;
+      
       // 서버에 퀴즈 이동 요청
       const currentBox = typeof selectedBox === 'number' ? selectedBox : 0;
-      await updateCardBox(quizId, targetBox === currentBox + 1); // true면 승급, false면 하향
+      await updateCardBox(quizId, targetBox === currentBox + 1, authHeaders); // true면 승급, false면 하향
       
       // UI 업데이트 - 퀴즈 제거 또는 훈련소 번호 업데이트
       if (selectedBox === 'all' || isSearching) {
@@ -191,8 +199,10 @@ export default function QuizManager() {
       setLoading(true);
       setIsSearching(true);
       
+      const authHeaders = user ? getAuthHeaders() : undefined;
+      
       // 검색 실행
-      const searchResults = await searchCards(searchTerm);
+      const searchResults = await searchCards(searchTerm, selectedSubject || undefined, authHeaders);
       setQuizzes(searchResults);
     } catch (error) {
       console.error('검색 오류:', error);
@@ -215,7 +225,9 @@ export default function QuizManager() {
     if (!quizToDelete) return;
     
     try {
-      await deleteCard(quizToDelete.id);
+      const authHeaders = user ? getAuthHeaders() : undefined;
+      
+      await deleteCard(quizToDelete.id, authHeaders);
       setQuizzes(prev => prev.filter(quiz => quiz.id !== quizToDelete.id));
       setShowDeleteModal(false);
       
@@ -245,6 +257,8 @@ export default function QuizManager() {
     if (!quizToEdit) return;
     
     try {
+      const authHeaders = user ? getAuthHeaders() : undefined;
+      
       // 수정된 데이터로 퀴즈 업데이트
       const updatedQuiz = {
         ...quizToEdit,
@@ -253,7 +267,7 @@ export default function QuizManager() {
       };
       
       // leitner.ts에서 가져온 updateCard 함수 사용
-      await updateCard(updatedQuiz);
+      await updateCard(updatedQuiz, authHeaders);
       
       // UI 업데이트
       setQuizzes(prev => 

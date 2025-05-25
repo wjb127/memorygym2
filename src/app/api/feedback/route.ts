@@ -1,6 +1,11 @@
+import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
 import type { NextRequest } from 'next/server';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // 속도 제한을 위한 메모리 저장소
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1분 (밀리초)
@@ -199,162 +204,57 @@ function saveLocalFeedback(content: string, email: string): { success: boolean, 
 
 export async function POST(request: NextRequest) {
   try {
-    // 요청 정보 로깅
-    const requestId = Date.now().toString(36) + Math.random().toString(36).substr(2);
-    
-    console.log(`## API 요청 시작 [${requestId}] ##`, {
-      url: request.url,
-      method: request.method,
-      headers: {
-        contentType: request.headers.get('content-type'),
-        userAgent: request.headers.get('user-agent'),
-        origin: request.headers.get('origin'),
-        referer: request.headers.get('referer')
-      }
-    });
-    
-    // 환경 정보 로깅
-    console.log(`## 환경 정보 [${requestId}] ##`, {
-      isDev: process.env.NODE_ENV === 'development',
-      vercel: !!process.env.VERCEL,
-      vercelEnv: process.env.VERCEL_ENV,
-      region: process.env.VERCEL_REGION,
-      slackUrlSet: !!process.env.SLACK_WEBHOOK_URL,
-      slackUrlLength: process.env.SLACK_WEBHOOK_URL?.length || 0
-    });
-    
-    // 클라이언트 IP 가져오기
-    const forwarded = request.headers.get('x-forwarded-for');
-    const ip = forwarded ? forwarded.split(',')[0].trim() : 'localhost';
-    
-    // 속도 제한 확인
-    const rateLimitResult = checkRateLimit(ip);
-    if (!rateLimitResult.allowed) {
-      const resetTime = rateLimitResult.resetTime || 0;
-      const waitSeconds = Math.ceil((resetTime - Date.now()) / 1000);
-      
+    const { feedback, rating } = await request.json();
+
+    if (!feedback?.trim()) {
       return NextResponse.json(
-        { 
-          error: `너무 많은 피드백을 보냈습니다. ${waitSeconds}초 후에 다시 시도해주세요.` 
-        },
-        { 
-          status: 429,
-          headers: {
-            'Retry-After': waitSeconds.toString()
-          }
-        }
-      );
-    }
-    
-    // 요청 본문 파싱
-    let content = '';
-    let email = '';
-    try {
-      const requestData = await request.json();
-      content = requestData.content || '';
-      email = requestData.email || '';
-      
-      console.log(`## 요청 데이터 [${requestId}] ##`, {
-        contentLength: content.length,
-        contentPreview: content.substring(0, 30) + (content.length > 30 ? '...' : ''),
-        email
-      });
-    } catch (parseError) {
-      console.error(`## 요청 본문 파싱 오류 [${requestId}] ##`, parseError);
-      return NextResponse.json(
-        { error: '유효하지 않은 요청 형식입니다.' },
+        { error: '피드백 내용을 입력해주세요.' },
         { status: 400 }
       );
     }
+
+    // Authorization 헤더에서 JWT 토큰 추출 (선택사항)
+    const authHeader = request.headers.get('authorization');
+    let userId = null;
     
-    // 콘텐츠 길이 제한 (최대 1000자)
-    if (content && content.length > 1000) {
-      return NextResponse.json(
-        { error: '피드백 내용은 최대 1000자까지 입력 가능합니다.' },
-        { status: 400 }
-      );
-    }
-    
-    // 기본 검증
-    if (!content || content.trim() === '') {
-      return NextResponse.json(
-        { error: '피드백 내용은 필수입니다.' }, 
-        { status: 400 }
-      );
-    }
-    
-    // 이메일 검증
-    if (!email || email.trim() === '') {
-      return NextResponse.json(
-        { error: '이메일 주소는 필수입니다.' }, 
-        { status: 400 }
-      );
-    }
-    
-    // 간단한 이메일 유효성 검사
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: '유효한 이메일 주소를 입력해주세요.' },
-        { status: 400 }
-      );
-    }
-    
-    let savedData = null;
-    
-    // 피드백 데이터 저장 시도
-    try {
-      // Supabase 대신 saveFeedback 함수 사용
-      const { success, data } = await saveFeedback(content, email);
-      
-      if (!success) {
-        console.error('피드백 저장 실패');
-        // 로컬 저장소에 백업
-        const localResult = saveLocalFeedback(content, email);
-        if (localResult.success) {
-          savedData = localResult.data;
-        }
-      } else {
-        savedData = data;
-        console.log('피드백 저장 성공:', data);
-      }
-    } catch (err) {
-      console.error('피드백 저장 중 예외:', err);
-      // 로컬 저장소에 백업
-      const localResult = saveLocalFeedback(content, email);
-      if (localResult.success) {
-        savedData = localResult.data;
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+      if (!error && user) {
+        userId = user.id;
       }
     }
-    
-    // 슬랙 알림 전송 (실패해도 사용자 응답에 영향을 주지 않음)
-    // 여기서 await를 제거하여 비동기적으로 실행하고 응답은 즉시 반환
-    sendSlackNotification(content, email)
-      .catch(err => {
-        console.error('슬랙 알림 전송 중 오류가 발생했지만 무시하고 계속 진행합니다:', err);
-      });
-    
-    // 응답 전에 최종 로그
-    console.log(`## API 요청 완료 [${requestId}] ##`, {
-      success: !!savedData,
-      localBackup: !savedData && !!localFeedbackCache.length,
-      responseStatus: 200
+
+    // 피드백 데이터 준비
+    const feedbackData = {
+      feedback: feedback.trim(),
+      rating: rating || null,
+      user_id: userId, // 비로그인 사용자는 null
+      user_agent: request.headers.get('user-agent') || '',
+      ip_address: request.headers.get('x-forwarded-for') || 
+                 request.headers.get('x-real-ip') || 
+                 'unknown',
+      created_at: new Date().toISOString()
+    };
+
+    console.log('[POST /api/feedback] 피드백 저장:', {
+      hasUserId: !!userId,
+      feedbackLength: feedback.length,
+      rating
     });
 
-    // 사용자에게 응답
+    // TODO: 실제 피드백 저장 로직 구현
+    // 현재는 콘솔에만 로그 출력
+    console.log('피드백 수신:', feedbackData);
+
     return NextResponse.json({ 
-      success: true, 
-      message: '피드백이 성공적으로 저장되었습니다.',
-      data: savedData
+      success: true,
+      message: '소중한 피드백 감사합니다!' 
     });
-    
   } catch (error) {
-    console.error('## 피드백 API 처리 중 최종 오류 ##', {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
-    });
+    console.error('[POST /api/feedback] 오류:', error);
     return NextResponse.json(
-      { error: '서버 오류가 발생했습니다.' },
+      { error: '피드백 전송 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }

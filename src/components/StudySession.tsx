@@ -7,7 +7,7 @@ import FlashQuiz from './FlashQuiz';
 import SubjectSelector from './SubjectSelector';
 import { useCards } from '@/context/CardContext';
 import { registerUpdateBoxCountsFunction } from './QuizManagement';
-import { useSession } from 'next-auth/react';
+import { useAuth } from '@/context/AuthProvider';
 
 // 상자 번호에 따른 이모지 반환 함수
 const getBoxEmoji = (boxNumber: number): string => {
@@ -37,8 +37,7 @@ export default function StudySession() {
   const { lastUpdated } = useCards();
   
   // 세션 상태 확인
-  const { data: session, status } = useSession();
-  const isLoggedIn = status === 'authenticated' && !!session;
+  const { user, getAuthHeaders } = useAuth();
 
   // 훈련소 번호나 과목이 변경되거나 학습이 재시작될 때 퀴즈 새로 로드
   useEffect(() => {
@@ -60,11 +59,13 @@ export default function StudySession() {
         5: 0,
       };
       
+      const authHeaders = user ? getAuthHeaders() : undefined;
+      
       // 각 훈련소의 퀴즈 개수 가져오기
       for (let box = 1; box <= 5; box++) {
         try {
           console.log(`[StudySession] ${box}번 훈련소 퀴즈 수 조회 중...`);
-          const boxQuizzes = await getCardsByBox(box, selectedSubject || undefined);
+          const boxQuizzes = await getCardsByBox(box, selectedSubject || undefined, authHeaders);
           counts[box] = Array.isArray(boxQuizzes) ? boxQuizzes.length : 0;
           console.log(`[StudySession] ${box}번 훈련소 퀴즈 수: ${counts[box]}개`);
         } catch (boxError) {
@@ -82,7 +83,7 @@ export default function StudySession() {
       console.warn('[StudySession] 훈련소별 퀴즈 수 업데이트 오류:', error);
       // 오류 발생 시 기존 상태 유지
     }
-  }, [selectedSubject]);
+  }, [selectedSubject, user, getAuthHeaders]);
 
   // 컴포넌트 마운트 시 updateBoxCounts 함수 등록
   useEffect(() => {
@@ -100,7 +101,8 @@ export default function StudySession() {
       setLoading(true);
       console.log(`[StudySession] ${boxNumber}번 훈련소 퀴즈 로드 시작, 과목 ID: ${subjectId || '전체'}`);
       
-      const boxQuizzes = await getCardsByBox(boxNumber, subjectId || undefined);
+      const authHeaders = user ? getAuthHeaders() : undefined;
+      const boxQuizzes = await getCardsByBox(boxNumber, subjectId || undefined, authHeaders);
       
       if (!Array.isArray(boxQuizzes)) {
         console.error(`[StudySession] ${boxNumber}번 훈련소 퀴즈 로드 실패: 배열이 아닌 값 반환됨`);
@@ -127,9 +129,10 @@ export default function StudySession() {
 
   const handleAnswer = async (quizId: number, isCorrect: boolean) => {
     try {
-      console.log(`[StudySession] 답변 처리: 카드 ID=${quizId}, 정답 여부=${isCorrect}, 로그인 상태=${isLoggedIn}`);
+      console.log(`[StudySession] 답변 처리: 카드 ID=${quizId}, 정답 여부=${isCorrect}, 로그인 상태=${!!user}`);
       
-      const updatedCard = await updateCardBox(quizId, isCorrect);
+      const authHeaders = user ? getAuthHeaders() : undefined;
+      const updatedCard = await updateCardBox(quizId, isCorrect, authHeaders);
       
       // 통계 업데이트
       setStats(prev => ({
@@ -160,7 +163,7 @@ export default function StudySession() {
       console.warn(`[StudySession] 답변 처리 실패: ${errorMessage}`);
       
       // 비로그인 사용자의 경우 오류가 발생해도 계속 진행
-      if (!isLoggedIn) {
+      if (!user) {
         console.log('[StudySession] 비로그인 사용자 - 로컬에서만 진행');
         
         // 통계 업데이트
@@ -274,7 +277,7 @@ export default function StudySession() {
         </h2>
         
         {/* 비로그인 사용자를 위한 안내 메시지 */}
-        {!isLoggedIn && (
+        {!user && (
           <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
             <p className="text-sm text-blue-700">
               💡 <strong>체험 모드</strong>로 훈련하고 계시네요!<br/>
@@ -313,7 +316,7 @@ export default function StudySession() {
             </div>
             
             {/* 비로그인 사용자를 위한 추가 설명 */}
-            {!isLoggedIn && (
+            {!user && (
               <div className="mb-6 p-3 bg-gray-50 rounded-lg border">
                 <p className="text-sm text-gray-600">
                   ✨ 정답한 카드는 다음 단계로, 틀린 카드는 1단계로 이동했습니다.<br/>
@@ -330,7 +333,7 @@ export default function StudySession() {
                 : `${selectedBox}단계 훈련소에는 퀴즈가 없습니다.`}
             </p>
             <p className="text-sm mt-2 text-[var(--neutral-700)]">
-              {isLoggedIn 
+              {!!user 
                 ? "'퀴즈추가' 탭에서 새로운 퀴즈를 추가해보세요!"
                 : "로그인 후 '퀴즈추가' 탭에서 새로운 퀴즈를 추가할 수 있습니다!"
               }

@@ -173,15 +173,35 @@ export default function FlashQuiz({ quiz, onAnswer }: FlashQuizProps) {
               )}
             </div>
             
-            {!answered && (
-              <button
-                type="submit"
-                className="w-full py-3 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors shadow-md"
-              >
-                💪 정답 확인
-              </button>
-            )}
+            {/* 버튼들을 같은 위치에 고정 */}
+            <div className="min-h-[52px] flex items-center">
+              {!answered && (
+                <button
+                  type="submit"
+                  className="w-full py-3 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors shadow-md"
+                >
+                  💪 정답 확인
+                </button>
+              )}
+              
+              {answered && !readyForNext && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (handleEnterKeyWithDebounce()) {
+                      setReadyForNext(true);
+                      onAnswer(quiz.id, isCorrect);
+                    }
+                  }}
+                  className="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-md flex items-center justify-center"
+                >
+                  <span>다음으로 넘어가기</span>
+                  <span className="ml-2 text-sm bg-white text-blue-500 px-2 py-1 rounded-md">Enter ⏎</span>
+                </button>
+              )}
+            </div>
             
+            {/* 정답 결과 섹션을 버튼 아래로 이동 */}
             {showResult && (
               <div className={`p-3 rounded-lg text-center font-medium ${
                 isCorrect 
@@ -205,22 +225,6 @@ export default function FlashQuiz({ quiz, onAnswer }: FlashQuizProps) {
                   </div>
                 )}
               </div>
-            )}
-            
-            {answered && !readyForNext && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (handleEnterKeyWithDebounce()) {
-                    setReadyForNext(true);
-                    onAnswer(quiz.id, isCorrect);
-                  }
-                }}
-                className="w-full py-3 bg-[var(--secondary)] text-white rounded-lg hover:bg-[var(--secondary-hover)] transition-colors shadow-md flex items-center justify-center"
-              >
-                <span>다음으로 넘어가기</span>
-                <span className="ml-2 text-sm bg-white text-[var(--secondary)] px-2 py-1 rounded-md">Enter ⏎</span>
-              </button>
             )}
           </div>
         </form>

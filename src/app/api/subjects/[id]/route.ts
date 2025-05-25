@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
+import { createClient } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function GET(
   request: NextRequest,
@@ -18,15 +23,23 @@ export async function GET(
       );
     }
 
-    // Next Auth 토큰 확인
-    const token = await getToken({ 
-      req: request, 
-      secret: process.env.NEXTAUTH_SECRET 
-    });
-    
-    if (!token) {
+    // Authorization 헤더에서 JWT 토큰 추출
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json(
         { error: "인증되지 않은 요청입니다." },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.substring(7);
+    
+    // Supabase JWT 토큰 검증
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    if (error || !user) {
+      return NextResponse.json(
+        { error: "유효하지 않은 토큰입니다." },
         { status: 401 }
       );
     }
@@ -61,7 +74,7 @@ export async function GET(
 
     // 사용자 권한 확인
     const subject = subjects[0];
-    if (subject.user_id !== token.sub) {
+    if (subject.user_id !== user.id) {
       return NextResponse.json(
         { error: "이 과목에 대한 접근 권한이 없습니다." },
         { status: 403 }
@@ -94,15 +107,23 @@ export async function PUT(
       );
     }
 
-    // Next Auth 토큰으로 인증 확인
-    const token = await getToken({ 
-      req: request, 
-      secret: process.env.NEXTAUTH_SECRET 
-    });
-    
-    if (!token) {
+    // Authorization 헤더에서 JWT 토큰 추출
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json(
         { error: '로그인이 필요합니다.' },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.substring(7);
+    
+    // Supabase JWT 토큰 검증
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    if (error || !user) {
+      return NextResponse.json(
+        { error: '유효하지 않은 토큰입니다.' },
         { status: 401 }
       );
     }
@@ -126,7 +147,7 @@ export async function PUT(
     
     // Supabase REST API로 과목 업데이트
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/subjects?id=eq.${id}`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/subjects?id=eq.${id}&user_id=eq.${user.id}`,
       {
         method: 'PATCH',
         headers: {
@@ -190,22 +211,30 @@ export async function DELETE(
       );
     }
 
-    // Next Auth 토큰 확인
-    const token = await getToken({ 
-      req: request, 
-      secret: process.env.NEXTAUTH_SECRET 
-    });
-    
-    if (!token) {
+    // Authorization 헤더에서 JWT 토큰 추출
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json(
         { error: "인증되지 않은 요청입니다." },
         { status: 401 }
       );
     }
 
-    // 현재 과목 확인 (사용자 권한 확인)
-    const subjectResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/subjects?id=eq.${id}&select=*`,
+    const token = authHeader.substring(7);
+    
+    // Supabase JWT 토큰 검증
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    if (error || !user) {
+      return NextResponse.json(
+        { error: "유효하지 않은 토큰입니다." },
+        { status: 401 }
+      );
+    }
+
+    // 과목 소유권 확인을 위한 조회
+    const checkResponse = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/subjects?id=eq.${id}&user_id=eq.${user.id}&select=id`,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -214,35 +243,26 @@ export async function DELETE(
         }
       }
     );
-    
-    if (!subjectResponse.ok) {
+
+    if (!checkResponse.ok) {
       return NextResponse.json(
-        { error: "과목 조회 중 오류가 발생했습니다." },
-        { status: subjectResponse.status }
+        { error: "과목 확인 중 오류가 발생했습니다." },
+        { status: checkResponse.status }
       );
     }
+
+    const checkData = await checkResponse.json();
     
-    const subjects = await subjectResponse.json();
-    
-    if (!subjects || subjects.length === 0) {
+    if (!checkData || checkData.length === 0) {
       return NextResponse.json(
-        { error: "과목을 찾을 수 없습니다." },
+        { error: "과목을 찾을 수 없거나 삭제 권한이 없습니다." },
         { status: 404 }
-      );
-    }
-    
-    // 사용자 권한 확인
-    const subject = subjects[0];
-    if (subject.user_id !== token.sub) {
-      return NextResponse.json(
-        { error: "이 과목에 대한 접근 권한이 없습니다." },
-        { status: 403 }
       );
     }
 
     // Supabase REST API로 과목 삭제
-    const deleteResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/subjects?id=eq.${id}`,
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/subjects?id=eq.${id}&user_id=eq.${user.id}`,
       {
         method: 'DELETE',
         headers: {
@@ -252,17 +272,16 @@ export async function DELETE(
         }
       }
     );
-    
-    if (!deleteResponse.ok) {
+
+    if (!response.ok) {
       return NextResponse.json(
         { error: "과목 삭제 중 오류가 발생했습니다." },
-        { status: deleteResponse.status }
+        { status: response.status }
       );
     }
-    
-    return NextResponse.json({
-      success: true,
-      message: "과목이 성공적으로 삭제되었습니다."
+
+    return NextResponse.json({ 
+      message: "과목이 성공적으로 삭제되었습니다." 
     });
   } catch (error) {
     console.error("과목 삭제 처리 중 오류:", error);

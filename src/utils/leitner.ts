@@ -83,17 +83,22 @@ const logError = <T>(message: string, error: any, defaultReturn: T): T => {
 };
 
 // 모든 과목 가져오기
-export async function getAllSubjects() {
+export async function getAllSubjects(isLoggedIn: boolean = false, headers?: Record<string, string>) {
   try {
-    console.log('[getAllSubjects] API 호출 시작');
+    console.log('[getAllSubjects] API 호출 시작, 로그인 상태:', isLoggedIn);
+    
+    const requestHeaders = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      ...headers
+    };
+    
+    console.log('[getAllSubjects] 요청 헤더:', requestHeaders);
     
     // 네트워크 요청을 시도하되, 실패 시 바로 샘플 데이터 반환
     const response = await fetch('/api/subjects', {
       credentials: 'include',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
+      headers: requestHeaders,
       // 타임아웃 설정 (5초)
       signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined
     });
@@ -103,27 +108,36 @@ export async function getAllSubjects() {
     // 로그인 상태가 아니거나 오류 응답인 경우 샘플 과목 반환
     if (response.status === 404 || response.status === 401 || !response.ok) {
       console.log('[getAllSubjects] 로그인되지 않음 또는 API 오류 - 샘플 과목 반환');
-      return SAMPLE_SUBJECTS;
+      return isLoggedIn ? [] : SAMPLE_SUBJECTS;  // 로그인된 경우 빈 배열 반환
     }
     
     const data = await response.json();
     
     if (response.ok && data && typeof data === 'object') {
-      // 실제 과목 + 샘플 과목 함께 반환 (실제 과목이 먼저 나오도록)
       const apiSubjects = Array.isArray(data.data) ? data.data : [];
-      console.log(`[getAllSubjects] API 과목 ${apiSubjects.length}개 + 샘플 과목 ${SAMPLE_SUBJECTS.length}개 반환`);
       
-      // 합친 배열을 ID 기준으로 정렬 (음수 ID인 샘플 과목은 뒤로)
-      return [...apiSubjects, ...SAMPLE_SUBJECTS].sort((a, b) => {
-        // 샘플 과목(음수 ID)은 항상 실제 과목(양수 ID) 뒤에 오도록
-        if (a.id < 0 && b.id > 0) return 1;
-        if (a.id > 0 && b.id < 0) return -1;
-        // 같은 종류끼리는 생성일 기준 정렬
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      });
+      if (isLoggedIn) {
+        // 로그인된 사용자에게는 실제 과목만 반환
+        console.log(`[getAllSubjects] 로그인 사용자 - API 과목 ${apiSubjects.length}개만 반환`);
+        return apiSubjects.sort((a: any, b: any) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+      } else {
+        // 비로그인 사용자에게는 실제 과목 + 샘플 과목 함께 반환
+        console.log(`[getAllSubjects] 비로그인 사용자 - API 과목 ${apiSubjects.length}개 + 샘플 과목 ${SAMPLE_SUBJECTS.length}개 반환`);
+        
+        // 합친 배열을 ID 기준으로 정렬 (음수 ID인 샘플 과목은 뒤로)
+        return [...apiSubjects, ...SAMPLE_SUBJECTS].sort((a, b) => {
+          // 샘플 과목(음수 ID)은 항상 실제 과목(양수 ID) 뒤에 오도록
+          if (a.id < 0 && b.id > 0) return 1;
+          if (a.id > 0 && b.id < 0) return -1;
+          // 같은 종류끼리는 생성일 기준 정렬
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+      }
     } else {
       console.warn('[getAllSubjects] API 응답 형식이 올바르지 않음 - 샘플 과목 반환');
-      return SAMPLE_SUBJECTS;
+      return isLoggedIn ? [] : SAMPLE_SUBJECTS;  // 로그인된 경우 빈 배열 반환
     }
   } catch (error) {
     // 네트워크 오류, 타임아웃, CORS 오류 등 모든 예외 상황에서 샘플 데이터 반환
@@ -136,7 +150,7 @@ export async function getAllSubjects() {
       console.warn('[getAllSubjects] 요청 타임아웃');
     }
     
-    return SAMPLE_SUBJECTS;
+    return isLoggedIn ? [] : SAMPLE_SUBJECTS;  // 로그인된 경우 빈 배열 반환
   }
 }
 
@@ -170,33 +184,55 @@ export async function getSubjectById(subjectId: number) {
 }
 
 // 새 과목 추가하기
-export async function addSubject(name: string, description?: string) {
+export async function addSubject(name: string, description?: string, headers?: Record<string, string>) {
   try {
+    console.log('[addSubject] 클라이언트 과목 생성 시작:', {
+      name,
+      description: description || '없음',
+      hasHeaders: !!headers,
+      headerKeys: headers ? Object.keys(headers) : []
+    });
+    
+    const requestHeaders = headers || {
+      'Content-Type': 'application/json',
+    };
+    
+    console.log('[addSubject] 요청 헤더:', requestHeaders);
+    
+    const requestBody = { name, description };
+    console.log('[addSubject] 요청 본문:', requestBody);
+    
     const response = await fetch('/api/subjects', {
       method: 'POST',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ name, description }),
+      headers: requestHeaders,
+      body: JSON.stringify(requestBody),
+    });
+    
+    console.log('[addSubject] API 응답 상태:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok
     });
     
     const data = await response.json();
+    console.log('[addSubject] API 응답 데이터:', data);
     
     if (response.ok) {
+      console.log('[addSubject] 과목 생성 성공:', data.data);
       return data.data;
     } else {
-      console.warn('과목 추가 오류:', data.error);
+      console.warn('[addSubject] 과목 추가 오류:', data.error);
       return null;
     }
   } catch (error) {
-    console.warn('과목 추가 예외:', error);
+    console.warn('[addSubject] 과목 추가 예외:', error);
     return null;
   }
 }
 
 // 모든 플래시카드 가져오기 (과목별 필터링 지원)
-export async function getAllCards(subjectId?: number) {
+export async function getAllCards(subjectId?: number, headers?: Record<string, string>) {
   // 샘플 과목인 경우 캐시된 샘플 카드 반환
   if (subjectId !== undefined && isSampleSubject(subjectId)) {
     const sampleCards = getCachedSampleCardsBySubject(subjectId);
@@ -209,8 +245,15 @@ export async function getAllCards(subjectId?: number) {
       ? `/api/subjects/${subjectId}/cards` 
       : '/api/cards';
       
+    const requestHeaders = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      ...headers
+    };
+    
     const response = await fetch(url, {
       credentials: 'include',
+      headers: requestHeaders,
     });
     
     // 로그인 상태가 아니면 샘플 카드 반환 (404 또는 401 오류인 경우)
@@ -240,7 +283,7 @@ export async function getAllCards(subjectId?: number) {
 }
 
 // 상자별 카드 가져오기 (과목별 필터링 지원)
-export async function getCardsByBox(boxNumber: number, subjectId?: number) {
+export async function getCardsByBox(boxNumber: number, subjectId?: number, headers?: Record<string, string>) {
   // 샘플 과목인 경우 캐시된 샘플 카드 반환
   if (subjectId !== undefined && isSampleSubject(subjectId)) {
     const sampleCards = getCachedSampleCardsByBox(boxNumber, subjectId);
@@ -259,12 +302,15 @@ export async function getCardsByBox(boxNumber: number, subjectId?: number) {
     // 네트워크 요청 전 약간의 지연 추가 (동시 요청 방지)
     await new Promise(resolve => setTimeout(resolve, Math.min(50 * boxNumber, 200)));
     
+    const requestHeaders = {
+      'Accept': 'application/json',
+      'Cache-Control': 'no-cache',
+      ...headers
+    };
+    
     const response = await fetch(url, {
       credentials: 'include',
-      headers: {
-        'Accept': 'application/json',
-        'Cache-Control': 'no-cache'
-      },
+      headers: requestHeaders,
       // 타임아웃 설정 (5초로 단축)
       signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined
     });
@@ -368,12 +414,12 @@ export async function getTodaysCards(subjectId?: number) {
 }
 
 // 기본 과목 확인 및 생성
-export async function ensureDefaultSubject(): Promise<number | null> {
+export async function ensureDefaultSubject(headers?: Record<string, string>): Promise<number | null> {
   console.log('[ensureDefaultSubject] 기본 과목 확인 중...');
   
   try {
-    // 먼저 기존 과목 목록을 가져오기
-    const subjects = await getAllSubjects();
+    // 먼저 기존 과목 목록을 가져오기 (로그인된 상태이므로 샘플 제외)
+    const subjects = await getAllSubjects(true, headers);
     
     // 과목이 하나라도 있으면 첫 번째 과목의 ID 반환
     if (subjects && subjects.length > 0) {
@@ -384,7 +430,7 @@ export async function ensureDefaultSubject(): Promise<number | null> {
     
     // 과목이 없으면 기본 과목 생성
     console.log('[ensureDefaultSubject] 과목이 없습니다. 기본 과목을 생성합니다.');
-    const newSubject = await addSubject('기본 과목', '자동으로 생성된 기본 과목입니다.');
+    const newSubject = await addSubject('기본 과목', '자동으로 생성된 기본 과목입니다.', headers);
     
     if (newSubject) {
       console.log(`[ensureDefaultSubject] 기본 과목 생성 성공: ID=${newSubject.id}, 이름=${newSubject.name}`);
@@ -400,7 +446,7 @@ export async function ensureDefaultSubject(): Promise<number | null> {
 }
 
 // 새 카드 추가하기 (과목 지정 가능)
-export async function addCard(front: string, back: string, subjectId: number = 1) {
+export async function addCard(front: string, back: string, subjectId: number = 1, headers?: Record<string, string>) {
   // 샘플 과목이면 로컬에서 카드 추가 처리
   if (isSampleSubject(subjectId)) {
     try {
@@ -450,7 +496,7 @@ export async function addCard(front: string, back: string, subjectId: number = 1
     const response = await fetch(`/api/subjects/${subjectId}/cards`, {
       method: 'POST',
       credentials: 'include',
-      headers: {
+      headers: headers || {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ front, back }),
@@ -511,8 +557,8 @@ export async function addCard(front: string, back: string, subjectId: number = 1
   }
 }
 
-// 카드 업데이트하기 (상자 이동)
-export async function updateCardBox(cardId: number, isCorrect: boolean) {
+// 카드 상자 업데이트하기 (라이트너 박스 이동)
+export async function updateCardBox(cardId: number, isCorrect: boolean, headers?: Record<string, string>) {
   // 샘플 카드인 경우 메모리 캐시에서 업데이트
   if (isSampleCard(cardId)) {
     console.log(`[updateCardBox] 샘플 카드(ID: ${cardId}) 이동 시뮬레이션, 정답 여부: ${isCorrect}`);
@@ -546,12 +592,15 @@ export async function updateCardBox(cardId: number, isCorrect: boolean) {
   try {
     console.log(`[updateCardBox] 카드 업데이트 API 호출: /api/cards/${cardId}/review`);
     
+    const requestHeaders = {
+      'Content-Type': 'application/json',
+      ...headers
+    };
+    
     const response = await fetch(`/api/cards/${cardId}/review`, {
       method: 'POST',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: requestHeaders,
       body: JSON.stringify({ isCorrect }),
     });
     
@@ -581,7 +630,7 @@ export async function updateCardBox(cardId: number, isCorrect: boolean) {
 }
 
 // 카드 삭제하기
-export async function deleteCard(cardId: number) {
+export async function deleteCard(cardId: number, headers?: Record<string, string>) {
   // 샘플 카드인 경우 메모리 캐시에서 삭제
   if (isSampleCard(cardId)) {
     console.log(`[deleteCard] 샘플 카드(ID: ${cardId}) 삭제 시뮬레이션`);
@@ -602,9 +651,14 @@ export async function deleteCard(cardId: number) {
   try {
     console.log(`[deleteCard] 카드 삭제 API 호출: /api/cards/${cardId}`);
     
+    const requestHeaders = {
+      ...headers
+    };
+    
     const response = await fetch(`/api/cards/${cardId}`, {
       method: 'DELETE',
       credentials: 'include',
+      headers: requestHeaders,
     });
     
     if (!response.ok) {
@@ -626,7 +680,7 @@ export async function deleteCard(cardId: number) {
 }
 
 // 카드 내용 수정하기
-export async function updateCard(card: Partial<FlashQuiz>) {
+export async function updateCard(card: Partial<FlashQuiz>, headers?: Record<string, string>) {
   if (!card.id) {
     console.warn('[updateCard] 카드 ID가 필요합니다');
     return null;
@@ -659,12 +713,15 @@ export async function updateCard(card: Partial<FlashQuiz>) {
   try {
     console.log(`[updateCard] 카드 수정 API 호출: /api/cards/${card.id}`);
     
+    const requestHeaders = {
+      'Content-Type': 'application/json',
+      ...headers
+    };
+    
     const response = await fetch(`/api/cards/${card.id}`, {
       method: 'PATCH',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: requestHeaders,
       body: JSON.stringify(card),
     });
     
@@ -694,7 +751,7 @@ export async function updateCard(card: Partial<FlashQuiz>) {
 }
 
 // 카드 검색하기
-export async function searchCards(searchText: string, subjectId?: number): Promise<FlashQuiz[]> {
+export async function searchCards(searchText: string, subjectId?: number, headers?: Record<string, string>): Promise<FlashQuiz[]> {
   // 샘플 과목인 경우 캐시된 샘플 카드 중에서 검색
   if (subjectId !== undefined && isSampleSubject(subjectId)) {
     const sampleCards = getCachedSampleCardsBySubject(subjectId);
@@ -721,8 +778,15 @@ export async function searchCards(searchText: string, subjectId?: number): Promi
     
     url.searchParams.append('q', searchText);
     
+    const requestHeaders = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      ...headers
+    };
+    
     const response = await fetch(url.toString(), {
       credentials: 'include',
+      headers: requestHeaders,
     });
     
     // 로그인 상태가 아니거나 API 오류 시 샘플 카드 검색
@@ -756,7 +820,7 @@ export async function searchCards(searchText: string, subjectId?: number): Promi
 }
 
 // 과목 수정하기
-export async function updateSubject(subjectId: number, updates: { name?: string; description?: string; color?: string }) {
+export async function updateSubject(subjectId: number, updates: { name?: string; description?: string; color?: string }, headers?: Record<string, string>) {
   // 샘플 과목은 수정 불가
   if (isSampleSubject(subjectId)) {
     console.warn(`[updateSubject] 샘플 과목(ID: ${subjectId}) 수정 시도 차단`);
@@ -764,16 +828,31 @@ export async function updateSubject(subjectId: number, updates: { name?: string;
   }
   
   try {
+    const requestHeaders = headers || {
+      'Content-Type': 'application/json',
+    };
+    
+    console.log('[updateSubject] 요청:', {
+      subjectId,
+      updates,
+      hasHeaders: !!headers,
+      headerKeys: headers ? Object.keys(headers) : []
+    });
+    
     const response = await fetch(`/api/subjects/${subjectId}`, {
       method: 'PUT',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: requestHeaders,
       body: JSON.stringify(updates),
     });
     
     const data = await response.json();
+    
+    console.log('[updateSubject] 응답:', {
+      status: response.status,
+      ok: response.ok,
+      data
+    });
     
     if (response.ok) {
       return data.data;
@@ -788,7 +867,7 @@ export async function updateSubject(subjectId: number, updates: { name?: string;
 }
 
 // 과목 삭제하기
-export async function deleteSubject(subjectId: number) {
+export async function deleteSubject(subjectId: number, headers?: Record<string, string>) {
   // 샘플 과목은 삭제 불가
   if (isSampleSubject(subjectId)) {
     console.warn(`[deleteSubject] 샘플 과목(ID: ${subjectId}) 삭제 시도 차단`);
@@ -796,9 +875,25 @@ export async function deleteSubject(subjectId: number) {
   }
   
   try {
+    const requestHeaders = headers || {
+      'Content-Type': 'application/json',
+    };
+    
+    console.log('[deleteSubject] 요청:', {
+      subjectId,
+      hasHeaders: !!headers,
+      headerKeys: headers ? Object.keys(headers) : []
+    });
+    
     const response = await fetch(`/api/subjects/${subjectId}`, {
       method: 'DELETE',
       credentials: 'include',
+      headers: requestHeaders,
+    });
+    
+    console.log('[deleteSubject] 응답:', {
+      status: response.status,
+      ok: response.ok
     });
     
     if (response.ok) {
@@ -812,4 +907,4 @@ export async function deleteSubject(subjectId: number) {
     console.warn('과목 삭제 예외:', error);
     throw error; // 오류를 상위로 전파
   }
-} 
+}

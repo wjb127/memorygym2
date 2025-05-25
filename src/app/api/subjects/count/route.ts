@@ -1,25 +1,40 @@
-import { getToken } from "next-auth/jwt";
+import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
 export async function GET(request: NextRequest) {
   try {
-    // Next Auth 토큰 확인
-    const token = await getToken({ 
-      req: request, 
-      secret: process.env.NEXTAUTH_SECRET 
-    });
+    // Authorization 헤더에서 JWT 토큰 추출
+    const authHeader = request.headers.get('authorization');
     
-    if (!token) {
-      return NextResponse.json(
-        { error: "인증되지 않은 요청입니다." },
-        { status: 401 }
-      );
+    // 비로그인 사용자에게는 0개 과목 반환
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({
+        count: 0
+      });
+    }
+
+    const token = authHeader.substring(7);
+    
+    // Supabase JWT 토큰 검증
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    // 토큰 검증 실패 시에도 0개 과목 반환
+    if (error || !user) {
+      console.log('[GET /api/subjects/count] 토큰 검증 실패, 0개 과목 반환');
+      return NextResponse.json({
+        count: 0
+      });
     }
 
     // Supabase REST API를 통해 과목 수 조회
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/subjects?user_id=eq.${token.sub}&select=id`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/subjects?user_id=eq.${user.id}&select=id`,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -31,10 +46,9 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       console.error("[GET /api/subjects/count] Supabase API 오류:", response.statusText);
-      return NextResponse.json(
-        { error: "과목 수 조회 중 오류가 발생했습니다." },
-        { status: response.status }
-      );
+      return NextResponse.json({
+        count: 0
+      });
     }
 
     const subjects = await response.json();
@@ -45,9 +59,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("과목 수 가져오기 오류:", error);
-    return NextResponse.json(
-      { error: "과목 수를 가져오는 중 오류가 발생했습니다." },
-      { status: 500 }
-    );
+    // 오류 발생 시에도 0개 과목 반환
+    return NextResponse.json({
+      count: 0
+    });
   }
 } 

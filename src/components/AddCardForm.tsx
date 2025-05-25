@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { addCard, ensureDefaultSubject } from '../utils/leitner';
 import SubjectSelector from './SubjectSelector';
 import ExcelUploader from './ExcelUploader';
-import { usePremium } from '@/context/PremiumContext';
 import { useCards } from '@/context/CardContext';
+import { useAuth } from '@/context/AuthProvider';
 
 interface AddCardFormProps {
   onCardAdded?: () => void;
@@ -22,13 +22,11 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
   const [inputMode, setInputMode] = useState<'single' | 'bulk' | 'excel'>('single');
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null); // 초기값은 null로 설정
   
-  // 프리미엄 상태 확인
-  const { isPremium, currentPlan, canAddCard, getSubjectCardCount } = usePremium();
-  const [canAddCardToSubject, setCanAddCardToSubject] = useState(true);
-  const [cardCount, setCardCount] = useState(0);
-  
   // 카드 상태 관리 컨텍스트 사용
   const { refreshCards } = useCards();
+  
+  // 인증 상태 확인
+  const { getAuthHeaders } = useAuth();
   
   // 컴포넌트 마운트 시 기본 과목 확인
   useEffect(() => {
@@ -49,21 +47,6 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
       initDefaultSubject();
     }
   }, []);
-  
-  // 선택한 과목이 변경되거나 카드가 추가될 때마다 카드 추가 가능 여부 확인
-  useEffect(() => {
-    const checkCardLimit = async () => {
-      if (!selectedSubject) return;
-      
-      const count = await getSubjectCardCount(selectedSubject);
-      setCardCount(count);
-      
-      const canAdd = await canAddCard(selectedSubject);
-      setCanAddCardToSubject(canAdd);
-    };
-    
-    checkCardLimit();
-  }, [selectedSubject, canAddCard, getSubjectCardCount]);
 
   const resetForm = () => {
     setFront('');
@@ -96,20 +79,17 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
       setSubmitMessage('과목을 선택해주세요.');
       return;
     }
-    
-    // 카드 추가 가능 여부 확인
-    if (!canAddCardToSubject) {
-      setSubmitStatus('error');
-      setSubmitMessage(`이 과목에는 더 이상 퀴즈를 추가할 수 없습니다. 무료 회원은 과목당 최대 ${currentPlan?.max_cards_per_subject || 100}개의 퀴즈만 추가할 수 있습니다. 프리미엄으로 업그레이드하세요.`);
-      return;
-    }
 
     try {
       setIsSubmitting(true);
       setSubmitStatus(null);
 
       console.log(`[AddCardForm] 퀴즈 추가 시작: ${front} / ${back}, 과목 ID: ${selectedSubject}`);
-      const result = await addCard(front, back, selectedSubject);
+      
+      // 인증 헤더 가져오기
+      const authHeaders = getAuthHeaders();
+      
+      const result = await addCard(front, back, selectedSubject, authHeaders);
       
       console.log(`[AddCardForm] 퀴즈 추가 성공:`, result);
       
@@ -120,14 +100,6 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
       
       // 카드 상태 업데이트 (컨텍스트 통해 다른 컴포넌트에 알림)
       refreshCards();
-      
-      // 카드 카운트 업데이트
-      if (selectedSubject) {
-        const newCount = await getSubjectCardCount(selectedSubject);
-        setCardCount(newCount);
-        const canAdd = await canAddCard(selectedSubject);
-        setCanAddCardToSubject(canAdd);
-      }
       
       // 훈련소 카운트 업데이트 함수 호출
       if (updateBoxCounts) {
@@ -162,13 +134,6 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
       setSubmitMessage('과목을 선택해주세요.');
       return;
     }
-    
-    // 카드 추가 가능 여부 확인
-    if (!canAddCardToSubject) {
-      setSubmitStatus('error');
-      setSubmitMessage(`이 과목에는 더 이상 퀴즈를 추가할 수 없습니다. 무료 회원은 과목당 최대 ${currentPlan?.max_cards_per_subject || 100}개의 퀴즈만 추가할 수 있습니다. 프리미엄으로 업그레이드하세요.`);
-      return;
-    }
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
@@ -195,22 +160,15 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
       setSubmitMessage('추가할 퀴즈가 없습니다.');
       return;
     }
-    
-    // 무료 회원의 경우 카드 추가 가능 개수 확인
-    if (!isPremium && selectedSubject) {
-      const maxAllowed = currentPlan?.max_cards_per_subject || 100;
-      if (cardCount + cards.length > maxAllowed) {
-        setSubmitStatus('error');
-        setSubmitMessage(`무료 회원은 과목당 최대 ${maxAllowed}개의 퀴즈만 추가할 수 있습니다. 현재 ${cardCount}개가 있으므로 ${maxAllowed - cardCount}개만 추가할 수 있습니다. 프리미엄으로 업그레이드하세요.`);
-        return;
-      }
-    }
 
     try {
       setIsSubmitting(true);
       setSubmitStatus(null);
 
       console.log(`[AddCardForm] 대량 퀴즈 추가 시작: ${cards.length}개, 과목 ID: ${selectedSubject}`);
+      
+      // 인증 헤더 가져오기
+      const authHeaders = getAuthHeaders();
       
       let successCount = 0;
       let failCount = 0;
@@ -220,7 +178,7 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
         const card = cards[i];
         try {
           console.log(`[AddCardForm] 퀴즈 추가 중 (${i+1}/${cards.length}): ${card.front} / ${card.back}`);
-          const result = await addCard(card.front, card.back, selectedSubject);
+          const result = await addCard(card.front, card.back, selectedSubject, authHeaders);
           successCount++;
         } catch (cardError: any) {
           failCount++;
@@ -264,14 +222,6 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
         setBulkText('');
       }
       
-      // 카드 카운트 업데이트
-      if (selectedSubject) {
-        const newCount = await getSubjectCardCount(selectedSubject);
-        setCardCount(newCount);
-        const canAdd = await canAddCard(selectedSubject);
-        setCanAddCardToSubject(canAdd);
-      }
-      
       if (onCardAdded && successCount > 0) {
         onCardAdded();
       }
@@ -287,13 +237,6 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
   // 과목 변경 핸들러
   const handleSubjectChange = async (subjectId: number | null) => {
     setSelectedSubject(subjectId);
-    
-    if (subjectId) {
-      const count = await getSubjectCardCount(subjectId);
-      setCardCount(count);
-      const canAdd = await canAddCard(subjectId);
-      setCanAddCardToSubject(canAdd);
-    }
   };
 
   return (
@@ -345,22 +288,12 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
             label="퀴즈를 추가할 과목"
           />
           
-          {!isPremium && selectedSubject && (
-            <div className="p-3 bg-[var(--neutral-200)] rounded-md text-sm">
-              <p className="font-medium">무료 플랜 제한</p>
-              <p className="mt-1 text-[var(--neutral-700)]">
-                현재 {cardCount}/{currentPlan?.max_cards_per_subject || 100} 퀴즈를 사용 중입니다.
-                {!canAddCardToSubject && ' 더 이상 퀴즈를 추가할 수 없습니다. 프리미엄으로 업그레이드하세요.'}
-              </p>
-            </div>
-          )}
-          
           {inputMode === 'single' ? (
             <>
               <div className="bg-[var(--neutral-100)] p-6 rounded-lg border border-[var(--neutral-300)] shadow-sm">
                 <div className="mb-4">
                   <label htmlFor="back" className="block text-sm font-medium mb-2">
-                    ❓ 문제 (예: 설명)
+                    ❓ 문제 (예: 영단어 뜻)
                   </label>
                   <input
                     type="text"
@@ -369,13 +302,13 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
                     onChange={(e) => setBack(e.target.value)}
                     className="w-full px-4 py-3 border border-[var(--neutral-300)] rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)]"
                     placeholder="문제가 되는 설명이나 힌트를 입력하세요"
-                    disabled={!canAddCardToSubject || isSubmitting}
+                    disabled={isSubmitting}
                   />
                 </div>
                 
                 <div>
                   <label htmlFor="front" className="block text-sm font-medium mb-2">
-                    💡 정답 (예: 단어)
+                    💡 정답 (예: 영단어)
                   </label>
                   <input
                     type="text"
@@ -384,7 +317,7 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
                     onChange={(e) => setFront(e.target.value)}
                     className="w-full px-4 py-3 border border-[var(--neutral-300)] rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)]"
                     placeholder="정답이 되는 단어나 내용을 입력하세요"
-                    disabled={!canAddCardToSubject || isSubmitting}
+                    disabled={isSubmitting}
                   />
                 </div>
               </div>
@@ -405,7 +338,7 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
 사과는 영어로?, apple
 책은 영어로?, book
 컴퓨터는 영어로?, computer"
-                disabled={!canAddCardToSubject || isSubmitting}
+                disabled={isSubmitting}
               />
               <p className="mt-2 text-sm text-[var(--neutral-700)]">
                 각 줄에 하나의 퀴즈를 문제와 정답을 쉼표로 구분하여 입력하세요.
@@ -444,9 +377,9 @@ export default function AddCardForm({ onCardAdded, updateBoxCounts }: AddCardFor
             
             <button
               type="submit"
-              disabled={!canAddCardToSubject || isSubmitting || !selectedSubject}
+              disabled={isSubmitting || !selectedSubject}
               className={`px-5 py-3 text-sm font-medium rounded-lg shadow-sm text-white bg-[var(--primary)] hover:bg-[var(--primary-hover)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)] transition-colors ${
-                (!canAddCardToSubject || isSubmitting || !selectedSubject) ? 'opacity-50 cursor-not-allowed' : ''
+                (isSubmitting || !selectedSubject) ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
               {isSubmitting ? '⏳ 처리 중...' : inputMode === 'bulk' ? '📚 여러 퀴즈 추가' : '💪 퀴즈 추가'}

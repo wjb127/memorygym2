@@ -2,27 +2,47 @@
 
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import StudySession from "../components/StudySession";
 import QuizManagement from "../components/QuizManagement";
 import SubjectManager from "../components/SubjectManager";
 import TabLayout from "../components/TabLayout";
 import FeedbackButton from "../components/FeedbackButton";
-import ProfileButton from "../components/ProfileButton";
-import { useSession, signOut as nextAuthSignOut } from "next-auth/react";
+import { useAuth } from "@/context/AuthProvider";
 
 export default function Home() {
   const router = useRouter();
-  const { data: session, status } = useSession();
-  const isLoading = status === 'loading';
-  const user = session?.user;
+  const { user, session, loading, signOut } = useAuth();
+  const [sessionCheckAttempts, setSessionCheckAttempts] = useState(0);
+  const isLoading = loading;
+  const isAuthenticated = !!user && !!session;
+
+  console.log("🏠 [메인 페이지] 세션 상태:", {
+    isLoading,
+    isAuthenticated,
+    hasSession: !!session,
+    hasUser: !!user,
+    userEmail: user?.email,
+    attempts: sessionCheckAttempts
+  });
+
+  // 세션 동기화 문제 해결을 위한 강제 체크
+  useEffect(() => {
+    // Supabase Auth는 자동으로 세션을 관리하므로 별도 동기화 불필요
+    console.log('🔄 [메인 페이지] Supabase Auth 상태 초기화 완료');
+  }, []);
 
   // 로그아웃 핸들러
   const handleLogout = async () => {
     try {
-      await nextAuthSignOut();
+      console.log("🚪 [메인 페이지] 로그아웃 시도");
+      await signOut();
+      console.log("✅ [메인 페이지] 로그아웃 성공");
+      router.push('/');
     } catch (error) {
-      console.error('로그아웃 처리 중 오류:', error);
+      console.error('💥 [메인 페이지] 로그아웃 처리 중 오류:', error);
+      // 오류 발생 시 수동으로 홈페이지로 리디렉션
+      window.location.href = '/';
     }
   };
 
@@ -55,9 +75,25 @@ export default function Home() {
           
           <div className="flex items-center space-x-3">
             {isLoading ? (
-              <div className="text-sm text-[var(--neutral-500)]">로딩 중...</div>
-            ) : user ? (
-              <ProfileButton />
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm text-[var(--neutral-500)]">세션 확인 중...</span>
+              </div>
+            ) : isAuthenticated && user ? (
+              <div className="flex items-center space-x-3">
+                <span className="text-sm text-[var(--neutral-700)]">
+                  안녕하세요, {user.user_metadata?.full_name || user.email}님!
+                </span>
+                <Link href="/profile" className="px-3 py-1 text-sm bg-[var(--secondary)] hover:bg-opacity-90 rounded-md transition-colors text-white">
+                  내 계정
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="px-3 py-1 text-sm bg-[var(--neutral-200)] hover:bg-[var(--neutral-300)] rounded-md transition-colors"
+                >
+                  로그아웃
+                </button>
+              </div>
             ) : (
               <>
                 <Link href="/login" className="px-3 py-1 text-sm bg-[var(--neutral-200)] hover:bg-[var(--neutral-300)] rounded-md transition-colors">
@@ -80,9 +116,10 @@ export default function Home() {
       
       <footer className="mt-8 text-center text-sm text-[var(--neutral-700)]">
         <p>💪 암기훈련소 - 매일 훈련하는 두뇌는 더 강해집니다</p>
-        <p className="mt-2">
+        {/* 프리미엄 링크 임시 숨김 (추후 앱 출시 시 광고 수익 모델로 전환 예정) */}
+        {/* <p className="mt-2">
           <Link href="/premium" className="text-[var(--primary)] hover:underline">프리미엄으로 업그레이드 →</Link>
-        </p>
+        </p> */}
         
         <div className="mt-6 pt-4 border-t border-[var(--neutral-300)]">
           <div className="flex flex-wrap justify-center gap-3 mb-4">

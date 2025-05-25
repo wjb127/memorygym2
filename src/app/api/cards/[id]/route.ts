@@ -1,6 +1,6 @@
-import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { authenticateUser } from "@/utils/auth-helpers";
 
 export async function PATCH(
   request: NextRequest,
@@ -10,18 +10,16 @@ export async function PATCH(
     // params를 await로 처리
     const { id } = await params;
     
-    // Next Auth 토큰 확인
-    const token = await getToken({ 
-      req: request, 
-      secret: process.env.NEXTAUTH_SECRET 
-    });
-    
-    if (!token) {
+    // Supabase 인증 확인
+    const authResult = await authenticateUser(request);
+    if (authResult.error) {
       return NextResponse.json(
         { error: "인증되지 않은 요청입니다." },
-        { status: 401 }
+        { status: authResult.status }
       );
     }
+    
+    const user = authResult.user!;
     
     // 카드 ID 확인
     const cardId = parseInt(id, 10);
@@ -52,7 +50,7 @@ export async function PATCH(
     
     // 현재 카드 확인 (사용자 권한 확인)
     const cardResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/flashcards?id=eq.${cardId}&user_id=eq.${token.sub}&select=*`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/flashcards?id=eq.${cardId}&user_id=eq.${user.id}&select=*`,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -87,7 +85,7 @@ export async function PATCH(
     
     // Supabase REST API로 카드 업데이트
     const updateResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/flashcards?id=eq.${cardId}`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/flashcards?id=eq.${cardId}&user_id=eq.${user.id}`,
       {
         method: 'PATCH',
         headers: {
@@ -141,18 +139,16 @@ export async function DELETE(
     // params를 await로 처리
     const { id } = await params;
     
-    // Next Auth 토큰 확인
-    const token = await getToken({ 
-      req: request, 
-      secret: process.env.NEXTAUTH_SECRET 
-    });
-    
-    if (!token) {
+    // Supabase 인증 확인
+    const authResult = await authenticateUser(request);
+    if (authResult.error) {
       return NextResponse.json(
         { error: "인증되지 않은 요청입니다." },
-        { status: 401 }
+        { status: authResult.status }
       );
     }
+    
+    const user = authResult.user!;
     
     // 카드 ID 확인
     const cardId = parseInt(id, 10);
@@ -165,7 +161,7 @@ export async function DELETE(
     
     // 현재 카드 확인 (사용자 권한 확인)
     const cardResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/flashcards?id=eq.${cardId}&user_id=eq.${token.sub}&select=*`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/flashcards?id=eq.${cardId}&user_id=eq.${user.id}&select=*`,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -194,7 +190,7 @@ export async function DELETE(
     
     // Supabase REST API로 카드 삭제
     const deleteResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/flashcards?id=eq.${cardId}`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/flashcards?id=eq.${cardId}&user_id=eq.${user.id}`,
       {
         method: 'DELETE',
         headers: {

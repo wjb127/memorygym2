@@ -66,7 +66,7 @@ export default function ServicePage() {
         <section>
           <h2 className="text-xl font-semibold mb-4" id="section-3">서비스 플랜</h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-8 mt-6 max-w-md mx-auto">
             <div className="border border-[var(--neutral-300)] rounded-lg p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold">무료 플랜</h3>
@@ -76,16 +76,18 @@ export default function ServicePage() {
                 <li>최대 100개의 플래시카드 생성</li>
                 <li>기본 학습 통계</li>
                 <li>텍스트 카드 지원</li>
-                <li>광고 포함</li>
+                <li>5개 복습 박스 시스템</li>
+                <li>과학적 간격 반복 학습</li>
               </ul>
               <div className="mt-auto">
-                <Link href="/signup" className="block text-center py-2 px-4 bg-[var(--neutral-200)] hover:bg-[var(--neutral-300)] rounded-md transition-colors">
+                <Link href="/signup" className="block text-center py-2 px-4 bg-[var(--primary)] text-white hover:bg-opacity-90 rounded-md transition-colors">
                   무료로 시작하기
                 </Link>
               </div>
             </div>
             
-            <div className="border-2 border-[var(--primary)] rounded-lg p-6 relative">
+            {/* 프리미엄 플랜 임시 숨김 (추후 앱 출시 시 광고 수익 모델로 전환 예정) */}
+            {/* <div className="border-2 border-[var(--primary)] rounded-lg p-6 relative">
               <div className="absolute top-0 right-0 bg-[var(--primary)] text-white px-3 py-1 text-xs font-bold rounded-bl-lg">
                 인기
               </div>
@@ -110,11 +112,11 @@ export default function ServicePage() {
                   프리미엄 시작하기
                 </Link>
               </div>
-            </div>
+            </div> */}
           </div>
           
           <p className="mt-6 text-sm text-[var(--neutral-700)] text-center">
-            모든 결제는 월 단위로 진행되며, 언제든지 취소할 수 있습니다. 자세한 내용은 <Link href="/refund-policy" className="text-[var(--primary)] hover:underline">환불 정책</Link>을 참고하세요.
+            암기훈련소는 과학적인 라이트너 시스템을 기반으로 한 무료 학습 플랫폼입니다.
           </p>
         </section>
 

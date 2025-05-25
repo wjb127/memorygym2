@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { parseExcelFile, isValidExcelFile, getErrorMessage } from '../utils/excelParser';
 import { addCard, getAllSubjects } from '../utils/leitner';
 import SubjectSelector from './SubjectSelector';
@@ -8,12 +8,14 @@ import { Subject } from '../utils/types';
 import * as XLSX from 'xlsx';
 import { usePremium } from '@/context/PremiumContext';
 import { useCards } from '@/context/CardContext';
+import { useAuth } from '@/context/AuthProvider';
 
 interface ExcelUploaderProps {
   onCardsAdded?: () => void;
 }
 
 export default function ExcelUploader({ onCardsAdded }: ExcelUploaderProps) {
+  const { user, getAuthHeaders } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -34,21 +36,27 @@ export default function ExcelUploader({ onCardsAdded }: ExcelUploaderProps) {
   const { refreshCards } = useCards();
   
   // 과목 목록 로드
-  useEffect(() => {
-    const loadSubjects = async () => {
-      setIsLoadingSubjects(true);
-      try {
-        const subjectsData = await getAllSubjects();
-        setSubjects(subjectsData);
-      } catch (error) {
-        console.error('과목 불러오기 오류:', error);
-      } finally {
-        setIsLoadingSubjects(false);
+  const loadSubjects = useCallback(async () => {
+    try {
+      const isLoggedIn = !!user;
+      const authHeaders = isLoggedIn ? getAuthHeaders() : undefined;
+      const subjectsData = await getAllSubjects(isLoggedIn, authHeaders);
+      setSubjects(subjectsData || []);
+      
+      // 첫 번째 실제 과목을 기본 선택 (샘플 제외)
+      const realSubjects = subjectsData.filter((s: Subject) => s.id > 0);
+      if (realSubjects.length > 0) {
+        setSelectedSubject(realSubjects[0].id);
       }
-    };
-    
+    } catch (error) {
+      console.error('과목 목록 로드 실패:', error);
+      setSubjects([]);
+    }
+  }, [user, getAuthHeaders]);
+  
+  useEffect(() => {
     loadSubjects();
-  }, []);
+  }, [loadSubjects]);
   
   // 과목 이름으로 과목 ID 찾기
   const findSubjectIdByName = (name: string): number | null => {

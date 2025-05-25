@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { addSubject } from '../utils/leitner';
 import { usePremium } from '@/context/PremiumContext';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/AuthProvider';
 import { useCards } from '@/context/CardContext';
 
 interface SubjectFormProps {
@@ -19,7 +19,8 @@ export default function SubjectForm({ onSubjectAdded }: SubjectFormProps) {
   
   // 프리미엄 상태 확인
   const { canAddSubject, isPremium, currentPlan, totalSubjectsCount } = usePremium();
-  const { user } = useAuth();
+  const { user, session, getAuthHeaders } = useAuth();
+  const isAuthenticated = !!user && !!session;
   // 카드 상태 관리 컨텍스트 사용
   const { refreshCards } = useCards();
 
@@ -33,7 +34,7 @@ export default function SubjectForm({ onSubjectAdded }: SubjectFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!user) {
+    if (!isAuthenticated || !user) {
       setSubmitStatus('error');
       setSubmitMessage('과목을 추가하려면 로그인이 필요합니다.');
       return;
@@ -56,7 +57,10 @@ export default function SubjectForm({ onSubjectAdded }: SubjectFormProps) {
       setIsSubmitting(true);
       setSubmitStatus(null);
 
-      const result = await addSubject(name, description);
+      // 인증 헤더 가져오기
+      const authHeaders = getAuthHeaders();
+
+      const result = await addSubject(name, description, authHeaders);
       
       if (result) {
         setSubmitStatus('success');

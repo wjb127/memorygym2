@@ -1,272 +1,113 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { signIn } from 'next-auth/react';
+import { useAuth } from '@/context/AuthProvider';
 
-// 회원가입 폼 컴포넌트
-function SignUpForm() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+export default function SignUpPage() {
   const router = useRouter();
-  
-  // 에러 메시지 초기화
+  const { user, loading, signInWithGoogle } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // 이미 로그인된 경우 홈으로 리디렉션
   useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => setError(null), 5000);
-      return () => clearTimeout(timer);
+    if (user && !loading) {
+      console.log('✅ [회원가입 페이지] 이미 로그인됨, 홈으로 이동');
+      router.push('/');
     }
-  }, [error]);
-  
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // 입력 검증
-    if (!email || !password || !confirmPassword) {
-      setError('모든 필드를 입력해주세요.');
-      return;
-    }
-    
-    // 이메일 형식 검증
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setError('유효한 이메일 주소를 입력해주세요.');
-      return;
-    }
-    
-    // 비밀번호 확인
-    if (password !== confirmPassword) {
-      setError('비밀번호가 일치하지 않습니다.');
-      return;
-    }
-    
-    // 비밀번호 길이 검증
-    if (password.length < 8) {
-      setError('비밀번호는 8자 이상이어야 합니다.');
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // 회원가입 API 요청
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || '회원가입 중 오류가 발생했습니다.');
-      }
-      
-      // 회원가입 성공
-      setSuccess('회원가입이 완료되었습니다. 이메일을 확인해주세요.');
-      
-      // 회원가입 후 자동 로그인
-      try {
-        // Next Auth 로그인
-        const nextAuthResult = await signIn('credentials', {
-          email, 
-          password,
-          redirect: false,
-          callbackUrl: '/'
-        });
-        
-        if (nextAuthResult?.error) {
-          console.warn('자동 로그인 실패:', nextAuthResult.error);
-          // 실패 시 3초 후 로그인 페이지로 리다이렉트
-          setTimeout(() => {
-            router.push('/login');
-          }, 3000);
-        } else {
-          console.log('자동 로그인 성공');
-          // 성공 시 바로 홈페이지로 리다이렉트
-          router.push('/');
-        }
-      } catch (err) {
-        console.error('자동 로그인 오류:', err);
-        // 오류 발생 시 3초 후 로그인 페이지로 리다이렉트
-        setTimeout(() => {
-          router.push('/login');
-        }, 3000);
-      }
-    } catch (err: any) {
-      console.error('회원가입 오류:', err);
-      
-      // 이미 가입된 이메일인 경우
-      if (err.message?.includes('already registered') || err.message?.includes('already exists')) {
-        setError('이미 가입된 이메일 주소입니다. 로그인을 시도해보세요.');
-      } else {
-        setError(err.message || '회원가입 중 오류가 발생했습니다.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-  
+  }, [user, loading, router]);
+
   const handleGoogleSignUp = async () => {
     try {
-      setLoading(true);
-      await signIn('google', { callbackUrl: '/' });
-    } catch (error) {
-      console.error('구글 로그인 오류:', error);
+      setIsLoading(true);
+      setError('');
+      console.log('🚀 [회원가입 페이지] 구글 회원가입 시도');
+      
+      await signInWithGoogle();
+      
+      // 로그인 성공 시 자동으로 useAuth에서 상태 업데이트됨
+      console.log('✅ [회원가입 페이지] 구글 회원가입 성공');
+    } catch (error: any) {
+      console.error('❌ [회원가입 페이지] 구글 회원가입 오류:', error);
+      setError(error.message || '회원가입 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
     }
   };
-  
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-8 bg-white p-6 rounded-lg shadow-md border border-[var(--neutral-300)]">
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <Link href="/" className="inline-block mb-4 text-[var(--neutral-700)] hover:text-[var(--primary)]">
-            ← 홈으로 돌아가기
-          </Link>
-          <h1 className="text-2xl font-bold">회원가입</h1>
-          <p className="mt-2 text-[var(--neutral-700)]">암기훈련소에 오신 것을 환영합니다!</p>
+          <div className="w-8 h-8 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-[var(--neutral-600)]">로그인 상태 확인 중...</p>
         </div>
-        
-        {error && (
-          <div className="bg-red-50 text-red-500 p-3 rounded-md text-sm">
-            {error}
+      </div>
+    );
+  }
+
+  return (
+    <main className="min-h-screen flex items-center justify-center p-4">
+      <div className="max-w-md w-full">
+        <div className="bg-white rounded-xl shadow-lg p-8 border border-[var(--neutral-300)]">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] bg-clip-text text-transparent mb-2">
+              💪 암기훈련소
+            </h1>
+            <p className="text-[var(--neutral-600)]">구글 계정으로 간편하게 시작하세요</p>
           </div>
-        )}
-        
-        {success && (
-          <div className="bg-green-50 text-green-500 p-3 rounded-md text-sm">
-            {success}
-          </div>
-        )}
-        
-        <form onSubmit={handleSignUp} className="mt-8 space-y-6">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-[var(--neutral-700)]">
-              이메일
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-[var(--neutral-300)] p-2"
-              placeholder="이메일 주소"
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-[var(--neutral-700)]">
-              비밀번호
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-[var(--neutral-300)] p-2"
-              placeholder="비밀번호 (8자 이상)"
-              minLength={8}
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-[var(--neutral-700)]">
-              비밀번호 확인
-            </label>
-            <input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              required
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-[var(--neutral-300)] p-2"
-              placeholder="비밀번호 확인"
-              minLength={8}
-            />
-          </div>
-          
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-[var(--primary)] text-white p-2 rounded-md hover:bg-opacity-90 transition-all disabled:opacity-50"
-            >
-              {loading ? '처리 중...' : '회원가입'}
-            </button>
-          </div>
-        </form>
-        
-        <div className="mt-4">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-[var(--neutral-300)]"></div>
+
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+              {error}
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-[var(--neutral-700)]">또는</span>
-            </div>
-          </div>
-          
-          <div className="mt-4">
+          )}
+
+          <div className="space-y-4">
             <button
-              type="button"
               onClick={handleGoogleSignUp}
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-3 bg-white border border-[var(--neutral-300)] p-2 rounded-md hover:bg-gray-50 transition-all disabled:opacity-50"
+              disabled={isLoading}
+              className="w-full flex items-center justify-center px-4 py-3 bg-white border border-[var(--neutral-300)] rounded-lg hover:bg-[var(--neutral-50)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <img
-                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                alt="Google"
-                width={20}
-                height={20}
-              />
-              <span>{loading ? '처리 중...' : 'Google로 계속하기'}</span>
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin mr-3"></div>
+              ) : (
+                <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+              )}
+              {isLoading ? '가입 중...' : 'Google로 시작하기'}
             </button>
           </div>
-          
-          <div className="mt-6 text-center text-sm">
-            <p>
+
+          <div className="mt-8 text-center">
+            <p className="text-sm text-[var(--neutral-600)]">
               이미 계정이 있으신가요?{' '}
-              <Link href="/login" className="text-[var(--primary)] hover:underline">
+              <Link href="/login" className="text-[var(--primary)] hover:underline font-medium">
                 로그인
               </Link>
             </p>
           </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
-// 메인 회원가입 페이지 컴포넌트
-export default function SignUp() {
-  return (
-    <Suspense fallback={
-      <div className="flex min-h-screen flex-col items-center justify-center p-4">
-        <div className="w-full max-w-md space-y-8 bg-white p-6 rounded-lg shadow-md border border-[var(--neutral-300)]">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold">회원가입</h1>
-            <p className="mt-2 text-[var(--neutral-700)]">로딩 중...</p>
-          </div>
-          <div className="flex justify-center my-8">
-            <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-[var(--primary)] border-r-transparent"></div>
+          <div className="mt-6 text-center">
+            <Link 
+              href="/" 
+              className="text-[var(--neutral-600)] hover:text-[var(--primary)] transition-colors text-sm"
+            >
+              ← 홈으로 돌아가기
+            </Link>
           </div>
         </div>
+
+        <div className="mt-8 text-center text-xs text-[var(--neutral-600)]">
+          <p>회원가입하면 <Link href="/terms" className="text-[var(--primary)] hover:underline">이용약관</Link> 및 <Link href="/privacy" className="text-[var(--primary)] hover:underline">개인정보 처리방침</Link>에 동의하는 것으로 간주됩니다.</p>
+        </div>
       </div>
-    }>
-      <SignUpForm />
-    </Suspense>
+    </main>
   );
 } 

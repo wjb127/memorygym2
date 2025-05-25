@@ -24,16 +24,51 @@ export const supabaseAdmin = supabaseServiceKey
 // 직접 로그인 함수
 export async function signInWithEmail(email: string, password: string) {
   try {
+    console.log("🔐 [Supabase] 로그인 시도:", { 
+      email, 
+      hasPassword: !!password,
+      supabaseUrl: !!supabaseUrl,
+      supabaseKey: !!supabaseAnonKey 
+    });
+    
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     
-    if (error) throw error;
+    console.log("📊 [Supabase] 로그인 응답:", {
+      hasData: !!data,
+      hasUser: !!data?.user,
+      hasSession: !!data?.session,
+      hasError: !!error,
+      errorMessage: error?.message,
+      userId: data?.user?.id,
+      userEmail: data?.user?.email
+    });
+    
+    if (error) {
+      console.log("❌ [Supabase] 로그인 오류 상세:", {
+        message: error.message,
+        status: error.status,
+        name: error.name
+      });
+      throw error;
+    }
+    
+    console.log("✅ [Supabase] 로그인 성공:", {
+      userId: data?.user?.id,
+      email: data?.user?.email,
+      sessionId: data?.session?.access_token ? "있음" : "없음"
+    });
     
     return { data, error: null };
   } catch (error: any) {
-    console.error('로그인 오류:', error.message || '알 수 없는 오류');
+    console.error("💥 [Supabase] 로그인 예외:", {
+      message: error.message || '알 수 없는 오류',
+      name: error.name,
+      status: error.status,
+      stack: error.stack
+    });
     return { data: null, error: { message: error.message || '로그인 처리 중 오류가 발생했습니다.' } };
   }
 }

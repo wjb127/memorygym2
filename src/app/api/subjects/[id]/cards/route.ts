@@ -1,6 +1,6 @@
-import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { authenticateUser } from "@/utils/auth-helpers";
 
 // 과목별 카드 목록 조회
 export async function GET(
@@ -22,27 +22,25 @@ export async function GET(
       );
     }
 
-    // Next Auth 토큰 확인
-    const token = await getToken({ 
-      req: request, 
-      secret: process.env.NEXTAUTH_SECRET 
-    });
-    
-    if (!token) {
-      console.error(`[API] 인증 오류: 토큰이 없음`);
+    // Supabase 인증 확인
+    const authResult = await authenticateUser(request);
+    if (authResult.error) {
+      console.error(`[API] 인증 오류: ${authResult.error}`);
       return NextResponse.json(
         { error: "인증되지 않은 요청입니다." },
-        { status: 401 }
+        { status: authResult.status }
       );
     }
+
+    const user = authResult.user!;
 
     // 쿼리 파라미터 확인
     const url = new URL(request.url);
     const boxParam = url.searchParams.get('box');
-    console.log(`[API] 요청 파라미터: subjectId=${subjectId}, box=${boxParam || '전체'}, userId=${token.sub}`);
+    console.log(`[API] 요청 파라미터: subjectId=${subjectId}, box=${boxParam || '전체'}, userId=${user.id}`);
     
     // 기본 필터: 과목 ID 및 사용자 ID로 필터링
-    let queryFilter = `subject_id=eq.${subjectId}&user_id=eq.${token.sub}`;
+    let queryFilter = `subject_id=eq.${subjectId}&user_id=eq.${user.id}`;
     
     // 상자 필터링이 있는 경우 추가
     if (boxParam) {
@@ -107,19 +105,17 @@ export async function POST(
       );
     }
 
-    // Next Auth 토큰 확인
-    const token = await getToken({ 
-      req: request, 
-      secret: process.env.NEXTAUTH_SECRET 
-    });
-    
-    if (!token) {
-      console.error(`[API] 인증 오류: 토큰이 없음`);
+    // Supabase 인증 확인
+    const authResult = await authenticateUser(request);
+    if (authResult.error) {
+      console.error(`[API] 인증 오류: ${authResult.error}`);
       return NextResponse.json(
         { error: "인증되지 않은 요청입니다." },
-        { status: 401 }
+        { status: authResult.status }
       );
     }
+
+    const user = authResult.user!;
 
     // 요청 본문 파싱
     const body = await request.json();
@@ -155,7 +151,7 @@ export async function POST(
           front,
           back,
           subject_id: subjectId,
-          user_id: token.sub,
+          user_id: user.id,
           box_number: 1, // 새 카드는 1번 상자에서 시작
           created_at: now,
           last_reviewed: now,

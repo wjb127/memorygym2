@@ -1,6 +1,6 @@
-import { getToken } from "next-auth/jwt";
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { authenticateUser } from '@/utils/auth-helpers';
 
 // 상자별 복습 간격 (일)
 const REVIEW_INTERVALS = [
@@ -19,19 +19,6 @@ export async function POST(
     // params를 await로 처리
     const { id } = await params;
     
-    // Next Auth 토큰 확인
-    const token = await getToken({ 
-      req: request, 
-      secret: process.env.NEXTAUTH_SECRET 
-    });
-    
-    if (!token) {
-      return NextResponse.json(
-        { error: "인증되지 않은 요청입니다." },
-        { status: 401 }
-      );
-    }
-    
     // 카드 ID 확인
     const cardId = parseInt(id, 10);
     if (isNaN(cardId)) {
@@ -40,13 +27,31 @@ export async function POST(
         { status: 400 }
       );
     }
-    
+
+    // Supabase 인증 확인
+    const authResult = await authenticateUser(request);
+    if (authResult.error) {
+      return NextResponse.json(
+        { error: "인증되지 않은 요청입니다." },
+        { status: authResult.status }
+      );
+    }
+
+    const user = authResult.user!;
+
     // 요청 본문 파싱
     const { isCorrect } = await request.json();
     
-    // Supabase REST API로 카드 조회
+    if (typeof isCorrect !== 'boolean') {
+      return NextResponse.json(
+        { error: "정답 여부(isCorrect)가 필요합니다." },
+        { status: 400 }
+      );
+    }
+
+    // 현재 카드 정보 조회
     const cardResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/flashcards?id=eq.${cardId}&select=*`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/flashcards?id=eq.${cardId}&user_id=eq.${user.id}&select=*`,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -55,52 +60,43 @@ export async function POST(
         }
       }
     );
-    
+
     if (!cardResponse.ok) {
-      console.error("카드 조회 오류:", cardResponse.statusText);
       return NextResponse.json(
         { error: "카드 조회 중 오류가 발생했습니다." },
         { status: cardResponse.status }
       );
     }
-    
+
     const cards = await cardResponse.json();
     
     if (!cards || cards.length === 0) {
       return NextResponse.json(
-        { error: "카드를 찾을 수 없습니다." },
+        { error: "카드를 찾을 수 없거나 접근 권한이 없습니다." },
         { status: 404 }
       );
     }
-    
-    // 첫 번째 카드 사용
-    const currentCard = cards[0];
-    
-    // 복습 결과에 따라 상자 번호 업데이트
-    let newBoxNumber = currentCard.box_number;
+
+    const card = cards[0];
+
+    // 상자 번호 계산 (라이트너 시스템)
+    let newBoxNumber;
     if (isCorrect) {
-      newBoxNumber = Math.min(currentCard.box_number + 1, 5);
+      // 정답: 다음 상자로 이동 (최대 5번 상자)
+      newBoxNumber = Math.min(card.box_number + 1, 5);
     } else {
+      // 오답: 1번 상자로 돌아감
       newBoxNumber = 1;
     }
-    
-    // 복습 간격 찾기
-    const interval = REVIEW_INTERVALS.find(i => i.box_number === newBoxNumber);
-    if (!interval) {
-      return NextResponse.json(
-        { error: "복습 간격 정보를 찾을 수 없습니다." },
-        { status: 500 }
-      );
-    }
-    
-    // 다음 복습 일자 계산
-    const now = new Date();
-    const nextReview = new Date();
-    nextReview.setDate(nextReview.getDate() + interval.interval_days);
-    
-    // Supabase REST API로 카드 업데이트
+
+    // 다음 복습 날짜 계산
+    const reviewIntervals = [1, 3, 7, 14, 30]; // 각 상자별 복습 간격 (일)
+    const nextReviewDate = new Date();
+    nextReviewDate.setDate(nextReviewDate.getDate() + reviewIntervals[newBoxNumber - 1]);
+
+    // 카드 업데이트
     const updateResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/flashcards?id=eq.${cardId}`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/flashcards?id=eq.${cardId}&user_id=eq.${user.id}`,
       {
         method: 'PATCH',
         headers: {
@@ -111,40 +107,30 @@ export async function POST(
         },
         body: JSON.stringify({
           box_number: newBoxNumber,
-          last_reviewed: now.toISOString(),
-          next_review: nextReview.toISOString()
+          last_reviewed: new Date().toISOString(),
+          next_review: nextReviewDate.toISOString()
         })
       }
     );
-    
+
     if (!updateResponse.ok) {
-      console.error("카드 업데이트 오류:", updateResponse.statusText);
       return NextResponse.json(
         { error: "카드 업데이트 중 오류가 발생했습니다." },
         { status: updateResponse.status }
       );
     }
-    
+
     const updatedCards = await updateResponse.json();
-    
-    if (!updatedCards || updatedCards.length === 0) {
-      return NextResponse.json(
-        { error: "카드 업데이트 결과를 찾을 수 없습니다." },
-        { status: 500 }
-      );
-    }
-    
-    // 첫 번째 결과 사용
     const updatedCard = updatedCards[0];
-    
+
     return NextResponse.json({
       data: updatedCard,
       success: true
     });
   } catch (error) {
-    console.error("카드 복습 처리 오류:", error);
+    console.error("카드 리뷰 처리 오류:", error);
     return NextResponse.json(
-      { error: "카드 복습 처리 중 오류가 발생했습니다." },
+      { error: "카드 리뷰 처리 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }

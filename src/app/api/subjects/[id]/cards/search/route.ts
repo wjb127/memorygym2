@@ -1,6 +1,6 @@
-import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { authenticateUser } from "@/utils/auth-helpers";
 
 export async function GET(
   request: NextRequest,
@@ -18,18 +18,16 @@ export async function GET(
       );
     }
 
-    // Next Auth 토큰 확인
-    const token = await getToken({ 
-      req: request, 
-      secret: process.env.NEXTAUTH_SECRET 
-    });
-    
-    if (!token) {
+    // Supabase 인증 확인
+    const authResult = await authenticateUser(request);
+    if (authResult.error) {
       return NextResponse.json(
         { error: "인증되지 않은 요청입니다." },
-        { status: 401 }
+        { status: authResult.status }
       );
     }
+
+    const user = authResult.user!;
 
     // 쿼리 파라미터 확인
     const url = new URL(request.url);
@@ -47,7 +45,7 @@ export async function GET(
 
     // Supabase REST API를 통해 카드 검색
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/flashcards?subject_id=eq.${subjectId}&user_id=eq.${token.sub}&${searchFilter}&select=*&order=created_at.desc`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/flashcards?subject_id=eq.${subjectId}&user_id=eq.${user.id}&${searchFilter}&select=*&order=created_at.desc`,
       {
         headers: {
           'Content-Type': 'application/json',

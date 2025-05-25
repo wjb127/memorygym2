@@ -2,176 +2,137 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { signOut, useSession } from 'next-auth/react';
+import { useAuth } from '@/context/AuthProvider';
 
 const INACTIVITY_WARNING_TIME = 105 * 60 * 1000; // 1시간 45분
 const FINAL_TIMEOUT_TIME = 15 * 60 * 1000; // 추가 15분
 
 export default function SessionTimeoutHandler() {
-  const { data: session, status } = useSession();
+  const { user, signOut } = useAuth();
   const router = useRouter();
   const [showWarning, setShowWarning] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(FINAL_TIMEOUT_TIME / 1000);
-  
-  // 타이머를 ref로 관리하여 의존성 배열에 추가하지 않도록 함
+  const [countdown, setCountdown] = useState(15);
   const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const logoutTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const finalTimerRef = useRef<NodeJS.Timeout | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // 로그아웃 카운트다운 시작
-  const startLogoutCountdown = useCallback(() => {
-    setSecondsLeft(FINAL_TIMEOUT_TIME / 1000);
-    
-    // 기존 인터벌 정리
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
+  const lastActivityRef = useRef<number>(Date.now());
+
+  // 활동 감지 함수
+  const updateActivity = useCallback(() => {
+    lastActivityRef.current = Date.now();
+    if (showWarning) {
+      setShowWarning(false);
+      setCountdown(15);
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+      }
     }
+  }, [showWarning]);
+
+  // 자동 로그아웃
+  const handleAutoLogout = useCallback(async () => {
+    try {
+      await signOut();
+      router.push('/');
+    } catch (error) {
+      console.error('자동 로그아웃 오류:', error);
+    }
+  }, [signOut, router]);
+
+  // 경고 표시
+  const showTimeoutWarning = useCallback(() => {
+    setShowWarning(true);
+    setCountdown(15);
     
-    // 1초마다 카운트다운
-    const countdownInterval = setInterval(() => {
-      setSecondsLeft(prev => {
+    // 카운트다운 시작
+    countdownIntervalRef.current = setInterval(() => {
+      setCountdown(prev => {
         if (prev <= 1) {
-          if (countdownIntervalRef.current) {
-            clearInterval(countdownIntervalRef.current);
-          }
+          handleAutoLogout();
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
-    
-    countdownIntervalRef.current = countdownInterval;
-    
-    // 최종 로그아웃 타이머 설정
-    if (logoutTimerRef.current) {
-      clearTimeout(logoutTimerRef.current);
-    }
-    
-    const newLogoutTimer = setTimeout(() => {
-      console.log('세션 타임아웃: 자동 로그아웃');
-      // 로그아웃 실행
-      signOut({ redirect: false }).then(() => {
-        router.push('/login?timeout=true');
-      });
-    }, FINAL_TIMEOUT_TIME);
-    
-    logoutTimerRef.current = newLogoutTimer;
-  }, [router]);
-  
-  // 활동 감지 시 호출될 함수
-  const resetTimers = useCallback(() => {
-    // 이미 활성화된 타이머가 있으면 제거
-    if (warningTimerRef.current) {
-      clearTimeout(warningTimerRef.current);
-      warningTimerRef.current = null;
-    }
-    
-    if (logoutTimerRef.current) {
-      clearTimeout(logoutTimerRef.current);
-      logoutTimerRef.current = null;
-    }
-    
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
-    
-    // 경고창이 표시 중이었다면 닫기
-    if (showWarning) {
-      setShowWarning(false);
-    }
-    
-    // 인증된 상태일 때만 타이머 설정
-    if (status === 'authenticated' && session) {
-      // 비활동 감지 타이머 설정
-      const newWarningTimer = setTimeout(() => {
-        setShowWarning(true);
-        startLogoutCountdown();
-      }, INACTIVITY_WARNING_TIME);
-      
-      warningTimerRef.current = newWarningTimer;
-    }
-  }, [showWarning, status, session, startLogoutCountdown]);
-  
-  // 세션 연장 처리
+  }, [handleAutoLogout]);
+
+  // 타이머 설정
+  const setInactivityTimer = useCallback(() => {
+    // 기존 타이머 클리어
+    if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
+    if (finalTimerRef.current) clearTimeout(finalTimerRef.current);
+
+    // 경고 타이머 설정
+    warningTimerRef.current = setTimeout(() => {
+      showTimeoutWarning();
+    }, INACTIVITY_WARNING_TIME);
+  }, [showTimeoutWarning]);
+
+  // 세션 연장
   const extendSession = useCallback(() => {
-    resetTimers();
-  }, [resetTimers]);
-  
-  // 컴포넌트 마운트 시 이벤트 리스너 설정
+    updateActivity();
+    setInactivityTimer();
+  }, [updateActivity, setInactivityTimer]);
+
   useEffect(() => {
-    // 로그인 상태일 때만 타이머 설정
-    if (status === 'authenticated' && session) {
-      // 사용자 활동 이벤트 리스너
-      const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
-      
-      // 디바운싱을 위한 변수 (짧은 시간에 여러 이벤트가 발생해도 한 번만 호출)
-      let debounceTimer: NodeJS.Timeout | null = null;
-      
-      const handleUserActivity = () => {
-        if (debounceTimer) clearTimeout(debounceTimer);
-        
-        debounceTimer = setTimeout(() => {
-          resetTimers();
-        }, 300);
-      };
-      
-      // 이벤트 리스너 등록
+    // 로그인된 사용자에게만 적용
+    if (!user) return;
+
+    // 활동 이벤트 리스너
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    
+    events.forEach(event => {
+      document.addEventListener(event, updateActivity, true);
+    });
+
+    // 초기 타이머 설정
+    setInactivityTimer();
+
+    return () => {
       events.forEach(event => {
-        window.addEventListener(event, handleUserActivity);
+        document.removeEventListener(event, updateActivity, true);
       });
       
-      // 초기 타이머 설정
-      resetTimers();
-      
-      // 클린업 함수
-      return () => {
-        events.forEach(event => {
-          window.removeEventListener(event, handleUserActivity);
-        });
-        
-        if (debounceTimer) clearTimeout(debounceTimer);
-        if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
-        if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
-        if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-      };
-    }
-  }, [resetTimers, status, session]);
-  
-  // 세션이 없으면 아무것도 렌더링하지 않음
-  if (status !== 'authenticated' || !session) {
-    return null;
-  }
-  
+      if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
+      if (finalTimerRef.current) clearTimeout(finalTimerRef.current);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    };
+  }, [user, updateActivity, setInactivityTimer]);
+
+  // 로그인하지 않은 경우 렌더링하지 않음
+  if (!user) return null;
+
   return (
     <>
       {showWarning && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md mx-4 shadow-xl">
-            <h3 className="text-xl font-bold mb-4 text-[var(--primary)]">세션 만료 예정</h3>
-            
-            <div className="mb-6">
-              <p className="mb-4">장시간 활동이 없어 {Math.floor(secondsLeft / 60)}분 {secondsLeft % 60}초 후에 자동 로그아웃됩니다.</p>
-              <p>계속 사용하시겠습니까?</p>
-            </div>
-            
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => {
-                  signOut({ redirect: false }).then(() => {
-                    router.push('/login');
-                  });
-                }}
-                className="px-4 py-2 border border-[var(--neutral-300)] rounded-lg bg-[var(--neutral-100)] hover:bg-[var(--neutral-200)] transition-colors"
-              >
-                로그아웃
-              </button>
-              <button
-                onClick={extendSession}
-                className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors"
-              >
-                세션 유지하기
-              </button>
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md mx-4">
+            <div className="text-center">
+              <div className="mb-4">
+                <svg className="w-16 h-16 text-yellow-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                세션 만료 경고
+              </h3>
+              <p className="text-gray-600 mb-4">
+                비활성 상태가 지속되어 {countdown}초 후에 자동으로 로그아웃됩니다.
+              </p>
+              <div className="space-y-3">
+                <button
+                  onClick={extendSession}
+                  className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  세션 연장
+                </button>
+                <button
+                  onClick={handleAutoLogout}
+                  className="w-full bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  지금 로그아웃
+                </button>
+              </div>
             </div>
           </div>
         </div>

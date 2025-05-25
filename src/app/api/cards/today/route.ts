@@ -1,29 +1,26 @@
-import { getToken } from "next-auth/jwt";
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { authenticateUser } from '@/utils/auth-helpers';
 
 export async function GET(request: NextRequest) {
   try {
-    // Next Auth 토큰 확인
-    const token = await getToken({ 
-      req: request, 
-      secret: process.env.NEXTAUTH_SECRET 
-    });
-    
-    if (!token) {
+    // Supabase 인증 확인
+    const authResult = await authenticateUser(request);
+    if (authResult.error) {
       return NextResponse.json(
         { error: "인증되지 않은 요청입니다." },
-        { status: 401 }
+        { status: authResult.status }
       );
     }
+
+    const user = authResult.user!;
     
-    // 현재 날짜 가져오기
-    const today = new Date().toISOString();
+    // 오늘 날짜 설정
+    const today = new Date().toISOString().split('T')[0];
     
-    // Supabase REST API를 통해 오늘 학습할 카드 조회
-    // next_review가 현재 시간보다 이전인 카드들 가져오기
+    // Supabase REST API를 통해 오늘 복습할 카드 조회
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/flashcards?user_id=eq.${token.sub}&or=(next_review.lte.${today},next_review.is.null)&select=*&order=box_number.asc,last_reviewed.asc`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/flashcards?user_id=eq.${user.id}&next_review=lte.${today}T23:59:59&select=*&order=next_review.asc`,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -34,7 +31,6 @@ export async function GET(request: NextRequest) {
     );
 
     if (!response.ok) {
-      console.error("오늘의 카드 조회 오류:", response.statusText);
       return NextResponse.json(
         { error: "오늘의 카드 조회 중 오류가 발생했습니다." },
         { status: response.status }
@@ -42,14 +38,14 @@ export async function GET(request: NextRequest) {
     }
 
     const cards = await response.json();
-    return NextResponse.json({
-      data: cards,
-      count: cards.length
+    
+    return NextResponse.json({ 
+      data: cards || [] 
     });
   } catch (error) {
-    console.error("오늘의 카드 정보 가져오기 오류:", error);
+    console.error("오늘의 카드 조회 처리 오류:", error);
     return NextResponse.json(
-      { error: "오늘의 카드 정보를 가져오는 중 오류가 발생했습니다." },
+      { error: "오늘의 카드 조회 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }
