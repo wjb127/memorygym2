@@ -95,16 +95,80 @@ export default function SubjectSelector({
     };
 
     loadSubjects();
-  }, [user, lastUpdated]); // lastUpdated를 의존성에 추가
+  }, [user]); // lastUpdated 의존성 제거 - 수동 새로고침으로 대체
 
   // 샘플 과목인지 확인하는 함수
   const isSampleSubject = (id: number) => id < 0;
 
+  const handleRefresh = async () => {
+    setError(null);
+    setLoading(true);
+    
+    try {
+      const isLoggedIn = !!user;
+      const authHeaders = isLoggedIn ? getAuthHeaders() : undefined;
+      
+      // 캐시 무효화를 위한 헤더 추가
+      const refreshHeaders = {
+        ...authHeaders,
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      };
+      
+      const data = await getAllSubjects(isLoggedIn, refreshHeaders);
+      
+      if (Array.isArray(data)) {
+        const uniqueSubjects = data.reduce((acc: Subject[], current: Subject) => {
+          const existingIndex = acc.findIndex((subject: Subject) => subject.id === current.id);
+          if (existingIndex === -1) {
+            acc.push(current);
+          }
+          return acc;
+        }, []);
+        
+        setSubjects(uniqueSubjects);
+        const hasOnlySampleData = uniqueSubjects.every((subject: Subject) => subject.id < 0);
+        setUsingSampleData(hasOnlySampleData);
+        
+        if (isLoggedIn && uniqueSubjects.length === 0) {
+          setError('과목이 없습니다. 새 과목을 추가해보세요.');
+        }
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="mb-4">
-      <label htmlFor="subject-selector" className="block text-sm font-medium mb-2 text-[var(--neutral-700)]">
-        {label}
-      </label>
+      <div className="flex justify-between items-center mb-2">
+        <label htmlFor="subject-selector" className="block text-sm font-medium text-[var(--neutral-700)]">
+          {label}
+        </label>
+        <button
+          onClick={handleRefresh}
+          disabled={loading}
+          className="p-1 text-[var(--neutral-600)] hover:text-[var(--primary)] transition-colors disabled:opacity-50"
+          title="과목 목록 새로고침"
+        >
+          <svg 
+            className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth={2} 
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
+            />
+          </svg>
+        </button>
+      </div>
       {usingSampleData && (
         <div className="mb-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
           <p className="text-xs text-blue-600">

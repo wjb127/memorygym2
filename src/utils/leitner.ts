@@ -94,6 +94,7 @@ export async function getAllSubjects(isLoggedIn: boolean = false, headers?: Reco
       const requestHeaders = {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        // 기본적으로 캐시 허용 (성능 향상)
         ...headers
       };
       
@@ -344,7 +345,7 @@ export async function getCardsByBox(boxNumber: number, subjectId?: number, heade
     
     const requestHeaders = {
       'Accept': 'application/json',
-      'Cache-Control': 'no-cache',
+      // 캐시 허용으로 성능 향상 (필요시 수동 새로고침)
       ...headers
     };
     

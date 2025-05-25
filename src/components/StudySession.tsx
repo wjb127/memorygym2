@@ -71,13 +71,13 @@ export default function StudySession() {
     }
   }, [user, getAuthHeaders]);
 
-  // 훈련소 번호나 과목이 변경되거나 학습이 재시작될 때, 또는 카드가 추가/변경될 때 퀴즈 새로 로드
+  // 훈련소 번호나 과목이 변경되거나 학습이 재시작될 때 퀴즈 새로 로드
   useEffect(() => {
     if (studyStarted && selectedBox !== null) {
-      console.log('[StudySession] 퀴즈 목록 새로고침 트리거:', { selectedBox, selectedSubject, studyStarted, lastUpdated });
+      console.log('[StudySession] 퀴즈 목록 로드 트리거:', { selectedBox, selectedSubject, studyStarted });
       loadQuizzesByBox(selectedBox, selectedSubject);
     }
-  }, [selectedBox, selectedSubject, studyStarted, lastUpdated, loadQuizzesByBox]);
+  }, [selectedBox, selectedSubject, studyStarted, loadQuizzesByBox]);
 
   // 훈련소별 퀴즈 수 업데이트 함수
   const updateBoxCounts = useCallback(async () => {
@@ -123,10 +123,10 @@ export default function StudySession() {
     registerUpdateBoxCountsFunction(updateBoxCounts);
   }, [updateBoxCounts]);
 
-  // 과목이 변경되거나 카드 상태가 변경될 때마다 훈련소별 퀴즈 수 업데이트
+  // 과목이 변경될 때 훈련소별 퀴즈 수 업데이트 (초기 로드)
   useEffect(() => {
     updateBoxCounts();
-  }, [updateBoxCounts, lastUpdated]);
+  }, [updateBoxCounts]);
 
   const handleAnswer = async (quizId: number, isCorrect: boolean) => {
     try {
@@ -197,6 +197,17 @@ export default function StudySession() {
     setStudyStarted(true);
   };
 
+  // 수동 새로고침 함수
+  const handleRefresh = useCallback(async () => {
+    console.log('[StudySession] 수동 새로고침 시작');
+    await updateBoxCounts();
+    
+    // 현재 학습 중인 훈련소가 있다면 해당 퀴즈도 새로고침
+    if (studyStarted && selectedBox !== null) {
+      await loadQuizzesByBox(selectedBox, selectedSubject);
+    }
+  }, [updateBoxCounts, studyStarted, selectedBox, selectedSubject, loadQuizzesByBox]);
+
   // 과목 변경 핸들러
   const handleSubjectChange = (subjectId: number | null) => {
     setSelectedSubject(subjectId);
@@ -210,9 +221,31 @@ export default function StudySession() {
   if (!studyStarted) {
     return (
       <div>
-        <h2 className="text-xl md:text-2xl font-bold mb-6 text-center bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] bg-clip-text text-transparent">
-          💪 두뇌 훈련하기
-        </h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl md:text-2xl font-bold text-center bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] bg-clip-text text-transparent flex-1">
+            💪 두뇌 훈련하기
+          </h2>
+          <button
+            onClick={handleRefresh}
+            disabled={loading}
+            className="p-2 text-[var(--neutral-600)] hover:text-[var(--primary)] transition-colors disabled:opacity-50"
+            title="훈련소 데이터 새로고침"
+          >
+            <svg 
+              className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
+              />
+            </svg>
+          </button>
+        </div>
         
         <SubjectSelector
           selectedSubject={selectedSubject}
